@@ -1,254 +1,1788 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
-  title: Reservations API
-  version: 1.0.0
+  title: Path AI API
+  version: 2.0.0
+  description: >
+    HTTP API for **Path AI**, a personal productivity system built on Supabase
+    Edge Functions (Deno/TypeScript). Each Edge Function maps to a domain and is
+    invoked from the React Native client via the Supabase `invoke()` method.
+
+
+    Authentication is handled automatically by the Supabase client: every request
+    carries the anon/publishable `apikey` and a per-user `Authorization: Bearer <JWT>`.
+    All data access is additionally protected by PostgreSQL Row Level Security, so a
+    user can only ever read or write their own rows.
+
+
+    Scoring is transactional: routine, goal, and session completions call the
+    `calculate_and_award_xp` PostgreSQL function, which applies the streak multiplier
+    and multi-virtue bonus and writes append-only rows to the XP ledger.
+
+
+    **Premium gating** is enforced server-side. Endpoints marked _Premium_ check
+    `subscription_tier` before executing and return `402 Payment Required` for
+    free-tier users who have exhausted any trial credits.
+  contact:
+    name: Path AI
+  license:
+    name: Proprietary — Confidential
+
+servers:
+  - url: https://{projectRef}.supabase.co/functions/v1
+    description: Supabase Edge Functions base URL
+    variables:
+      projectRef:
+        default: your-project-ref
+        description: The Supabase project reference id.
+  - url: http://localhost:54321/functions/v1
+    description: Local Supabase (supabase start)
+
+security:
+  - bearerAuth: []
+    apiKeyAuth: []
 
 tags:
-  - name: reservation
-    description: Reservation management
+  - name: today
+    description: Aggregated Today view.
+  - name: profile
+    description: Profile, levels, virtues, and XP history.
+  - name: routines
+    description: Recurring routines and completion.
+  - name: goals
+    description: Goals, quests, subtasks, and the idea backlog.
+  - name: sessions
+    description: Focused work sessions and timer instances.
+  - name: field-logs
+    description: Structured journaling and templates.
+  - name: retrospectives
+    description: AI-generated retrospectives and chat (premium).
+  - name: schedule
+    description: Expanded upcoming schedule.
+  - name: analytics
+    description: Dashboard analytics.
 
 paths:
-  /health:
+  # ------------------------------------------------------------------ today
+  /today:
     get:
-      summary: Health check
+      operationId: getToday
+      tags: [today]
+      summary: Aggregated Today view payload
+      description: >
+        Returns everything the Today dashboard renders for the current day in the
+        user's timezone: streak banner, active quests, scheduled sessions, daily and
+        due weekly/monthly routines, follow-up reminders, and (premium) a
+        retrospective prompt if one is due.
       responses:
-        '200':
-          description: Service is healthy
+        "200":
+          description: Today payload.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TodayPayload"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------------------------------------------------------------- profile
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [profile]
+      summary: User profile, global level, streak, virtue summary
+      responses:
+        "200":
+          description: Profile with derived level and streak state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Profile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /profile/virtues:
+    get:
+      operationId: listVirtues
+      tags: [profile]
+      summary: All virtues with levels and XP
+      responses:
+        "200":
+          description: The user's virtues, ordered by display_order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Virtue"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /profile/virtues/{id}/history:
+    get:
+      operationId: getVirtueHistory
+      tags: [profile]
+      summary: XP history for a virtue (chart data)
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+        - name: from
+          in: query
+          description: Start date (inclusive) for the history window.
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          description: End date (inclusive) for the history window.
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Time-series XP data for the virtue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VirtueHistory"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /profile/xp-ledger:
+    get:
+      operationId: getXpLedger
+      tags: [profile]
+      summary: XP transaction history (cursor-paginated)
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: A page of XP ledger entries, newest first.
           content:
             application/json:
               schema:
                 type: object
-                required: [status]
+                required: [data]
                 properties:
-                  status:
-                    type: string
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/XpLedgerEntry"
+                  next_cursor:
+                    $ref: "#/components/schemas/NextCursor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
-  /reservation:
+  # --------------------------------------------------------------- routines
+  /routines:
+    get:
+      operationId: listRoutines
+      tags: [routines]
+      summary: All routines with virtue tags
+      parameters:
+        - name: is_active
+          in: query
+          description: Filter by active state. Omit to return all.
+          schema:
+            type: boolean
+        - name: frequency
+          in: query
+          schema:
+            $ref: "#/components/schemas/RoutineFrequency"
+      responses:
+        "200":
+          description: The user's routines.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Routine"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
     post:
-      tags: [reservation]
-      summary: Create a reservation
+      operationId: createRoutine
+      tags: [routines]
+      summary: Create routine
+      description: >
+        Free tier is limited to 10 active routines; exceeding the limit returns
+        `402 Payment Required`.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReservationInput'
+              $ref: "#/components/schemas/RoutineCreate"
       responses:
-        '201':
-          description: Reservation created
+        "201":
+          description: The created routine.
           content:
             application/json:
               schema:
-                type: object
-                required: [reservationId]
-                properties:
-                  reservationId:
-                    type: string
+                $ref: "#/components/schemas/Routine"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
 
-    get:
-      tags: [reservation]
-      summary: Search reservations
+  /routines/{id}/complete:
+    post:
+      operationId: completeRoutine
+      tags: [routines]
+      summary: Complete routine
+      description: >
+        Records a routine completion and invokes the `calculate_and_award_xp`
+        PostgreSQL function, applying the current streak multiplier and multi-virtue
+        bonus. Returns the awarded XP and updated level/streak state.
       parameters:
-        - name: owner
-          in: query
-          schema:
-            type: string
-        - name: startTime
-          in: query
-          schema:
-            type: number
-        - name: endTime
-          in: query
-          schema:
-            type: number
-        - name: room
-          in: query
-          schema:
-            type: string
-        - name: cursor
-          in: query
-          schema:
-            type: string
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
+        - $ref: "#/components/parameters/PathId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                completed_at:
+                  type: string
+                  format: date-time
+                  description: Override completion time. Defaults to now.
       responses:
-        '200':
-          description: Search results
+        "200":
+          description: Completion recorded with scoring result.
           content:
             application/json:
               schema:
-                type: object
-                required: [items]
-                properties:
-                  nextCursor:
-                    type: string
-                    nullable: true
-                  items:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Reservation'
+                $ref: "#/components/schemas/ScoringResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Routine already completed for this period.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
-  /reservation/{reservationId}:
-    parameters:
-      - name: reservationId
-        in: path
-        required: true
-        schema:
-          type: string
-
+  # ------------------------------------------------------------------ goals
+  /goals:
     get:
-      tags: [reservation]
-      summary: Get a reservation
+      operationId: listGoals
+      tags: [goals]
+      summary: Goals filtered by status
+      parameters:
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/GoalStatus"
+        - name: is_quest
+          in: query
+          schema:
+            type: boolean
+        - name: parent_goal_id
+          in: query
+          description: Return subtasks of a given goal. Omit for top-level goals.
+          schema:
+            type: string
+            format: uuid
       responses:
-        '200':
-          description: Reservation found
+        "200":
+          description: Matching goals.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Reservation'
-        '404':
-          description: Reservation not found
+                type: array
+                items:
+                  $ref: "#/components/schemas/Goal"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createGoal
+      tags: [goals]
+      summary: Create goal or subtask
+      description: >
+        Set `parent_goal_id` to create a subtask. Free tier is limited to 3 active
+        goals; exceeding the limit returns `402 Payment Required`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GoalCreate"
+      responses:
+        "201":
+          description: The created goal.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Goal"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
 
+  /goals/{id}:
     patch:
-      tags: [reservation]
-      summary: Update a reservation
+      operationId: updateGoal
+      tags: [goals]
+      summary: Update goal (status, quest flag, due date)
+      parameters:
+        - $ref: "#/components/parameters/PathId"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReservationPatch'
+              $ref: "#/components/schemas/GoalUpdate"
       responses:
-        '200':
-          description: Reservation updated
+        "200":
+          description: The updated goal.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Reservation'
-        '404':
-          description: Reservation not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+                $ref: "#/components/schemas/Goal"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
-    delete:
-      tags: [reservation]
-      summary: Delete a reservation
-      responses:
-        '204':
-          description: Reservation deleted
-        '404':
-          description: Reservation not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /availability:
-    get:
-      tags: [reservation]
-      summary: Search room availability
+  /goals/{id}/complete:
+    post:
+      operationId: completeGoal
+      tags: [goals]
+      summary: Complete goal
+      description: >
+        Marks the goal completed and invokes `calculate_and_award_xp`. Quests award a
+        bonus over standard goals.
       parameters:
-        - name: startTime
+        - $ref: "#/components/parameters/PathId"
+      responses:
+        "200":
+          description: Completion recorded with scoring result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoringResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Goal already completed.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /goals/backlog:
+    get:
+      operationId: listBacklog
+      tags: [goals]
+      summary: Goal backlog items
+      responses:
+        "200":
+          description: Backlog ideas not yet promoted to goals.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BacklogItem"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: addBacklogItem
+      tags: [goals]
+      summary: Add to backlog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BacklogItemCreate"
+      responses:
+        "201":
+          description: The created backlog item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacklogItem"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /goals/backlog/{id}/promote:
+    post:
+      operationId: promoteBacklogItem
+      tags: [goals]
+      summary: Promote backlog item to active goal
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Optional overrides applied to the created goal.
+              properties:
+                is_quest:
+                  type: boolean
+                  default: false
+                due_date:
+                  type: string
+                  format: date
+                base_xp:
+                  type: integer
+      responses:
+        "201":
+          description: The newly created goal; the backlog item is marked promoted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Goal"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Backlog item already promoted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # --------------------------------------------------------------- sessions
+  /sessions:
+    get:
+      operationId: listSessions
+      tags: [sessions]
+      summary: All session definitions
+      parameters:
+        - name: is_active
           in: query
           schema:
-            type: number
-        - name: endTime
+            type: boolean
+      responses:
+        "200":
+          description: The user's session definitions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Session"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createSession
+      tags: [sessions]
+      summary: Create session
+      description: >
+        Custom `target_duration_minutes` (anything other than 30/60/90) is a premium
+        feature and returns `402 Payment Required` for free users.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionCreate"
+      responses:
+        "201":
+          description: The created session definition.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
+
+  /sessions/{id}/start:
+    post:
+      operationId: startSession
+      tags: [sessions]
+      summary: Start instance, returns timer state
+      description: >
+        Creates (or resumes) a session instance in `in_progress` and returns the
+        timer state the client renders in the fullscreen timer.
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                focus_mode_activated:
+                  type: boolean
+                  description: Whether iOS Focus/DND was triggered on start.
+                  default: false
+      responses:
+        "200":
+          description: Timer state for the started instance.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimerState"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /sessions/{id}/end:
+    post:
+      operationId: endSession
+      tags: [sessions]
+      summary: End instance (proportional XP)
+      description: >
+        Ends the in-progress instance. XP is proportional to time completed; ending
+        early still awards partial credit.
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                actual_duration_seconds:
+                  type: integer
+                  minimum: 0
+                  description: >
+                    Elapsed focused time. If omitted, computed server-side from the
+                    instance start timestamp.
+      responses:
+        "200":
+          description: Instance ended with scoring result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoringResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: No in-progress instance to end.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /sessions/{id}/skip:
+    post:
+      operationId: skipSession
+      tags: [sessions]
+      summary: Skip instance (penalty)
+      description: >
+        Marks the scheduled instance skipped and logs a negative XP entry
+        (25% of the session's base XP). Does not break the streak.
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      responses:
+        "200":
+          description: Instance skipped with penalty applied.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoringResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ------------------------------------------------------------- field-logs
+  /field-logs:
+    get:
+      operationId: listFieldLogs
+      tags: [field-logs]
+      summary: Logs (paginated, filterable)
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+        - name: template_id
           in: query
+          description: Filter to logs created from a given template.
           schema:
-            type: number
-        - name: cursor
+            type: string
+            format: uuid
+        - name: prefix
           in: query
           schema:
             type: string
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            minimum: 1
       responses:
-        '200':
-          description: Availability results
+        "200":
+          description: A page of field logs, newest first.
           content:
             application/json:
               schema:
                 type: object
-                required: [items]
+                required: [data]
                 properties:
-                  nextCursor:
-                    type: string
-                    nullable: true
-                  items:
+                  data:
                     type: array
                     items:
-                      type: object
-                      required: [room]
-                      properties:
-                        room:
-                          type: string
+                      $ref: "#/components/schemas/FieldLog"
+                  next_cursor:
+                    $ref: "#/components/schemas/NextCursor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createFieldLog
+      tags: [field-logs]
+      summary: Create log
+      description: >
+        Creates a field log. For premium users submitting against a template with an
+        `ai_prompt_template`, this synchronously triggers AI analysis (Gemini 2.0
+        Flash) and stores the result on the record. Free users get basic text logs
+        with no analysis (plus a limited number of trial analyses).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FieldLogCreate"
+      responses:
+        "201":
+          description: The created field log (with `ai_analysis` when applicable).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FieldLog"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
 
+  /field-logs/templates:
+    get:
+      operationId: listFieldLogTemplates
+      tags: [field-logs]
+      summary: List templates (premium)
+      responses:
+        "200":
+          description: The user's field log templates.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FieldLogTemplate"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
+    post:
+      operationId: createFieldLogTemplate
+      tags: [field-logs]
+      summary: Create template (premium)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FieldLogTemplateCreate"
+      responses:
+        "201":
+          description: The created template.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FieldLogTemplate"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
+
+  # --------------------------------------------------------- retrospectives
+  /retrospectives:
+    get:
+      operationId: listRetrospectives
+      tags: [retrospectives]
+      summary: List retrospectives
+      parameters:
+        - name: period_type
+          in: query
+          schema:
+            $ref: "#/components/schemas/RetroPeriodType"
+        - name: status
+          in: query
+          schema:
+            $ref: "#/components/schemas/RetroStatus"
+      responses:
+        "200":
+          description: Retrospective summaries.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RetrospectiveSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /retrospectives/{id}:
+    get:
+      operationId: getRetrospective
+      tags: [retrospectives]
+      summary: Full retro with report + analytics
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      responses:
+        "200":
+          description: The full retrospective including report, analytics, and chat.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Retrospective"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /retrospectives/{id}/review:
+    post:
+      operationId: reviewRetrospective
+      tags: [retrospectives]
+      summary: Mark reviewed (earn XP)
+      description: >
+        Marks the retrospective reviewed, optionally attaching user reflection notes,
+        and awards the review XP.
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                user_notes:
+                  type: string
+                  description: Reflections added during review.
+      responses:
+        "200":
+          description: Reviewed retrospective with scoring result.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoringResult"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /retrospectives/{id}/chat:
+    post:
+      operationId: retrospectiveChat
+      tags: [retrospectives]
+      summary: Send message to retro chat AI (premium)
+      description: >
+        Appends a user message to the retrospective's chat history and returns the AI
+        assistant's reply (Gemini 2.5 Flash). Chat is capped at 20 messages per retro
+        to manage cost; exceeding the cap returns `409 Conflict`.
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                  description: The user's chat message.
+      responses:
+        "200":
+          description: The assistant's reply and the updated message count.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reply]
+                properties:
+                  reply:
+                    $ref: "#/components/schemas/ChatMessage"
+                  message_count:
+                    type: integer
+                    description: Total messages used of the 20-message cap.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "402":
+          $ref: "#/components/responses/PaymentRequired"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Per-retro message cap reached.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  # --------------------------------------------------------------- schedule
+  /schedule:
+    get:
+      operationId: getSchedule
+      tags: [schedule]
+      summary: Full upcoming schedule (infinite scroll)
+      description: >
+        Returns expanded, recurrence-resolved schedule items (routines and sessions)
+        from a start date forward, cursor-paginated for infinite scroll.
+      parameters:
+        - name: from
+          in: query
+          description: First date to include. Defaults to today.
+          schema:
+            type: string
+            format: date
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: A page of scheduled items grouped by date.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ScheduleDay"
+                  next_cursor:
+                    $ref: "#/components/schemas/NextCursor"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # -------------------------------------------------------------- analytics
+  /analytics/overview:
+    get:
+      operationId: getAnalyticsOverview
+      tags: [analytics]
+      summary: Dashboard analytics payload
+      description: >
+        Free tier returns a basic payload (streak and level only); premium returns the
+        full set of charts and trends.
+      parameters:
+        - name: period
+          in: query
+          description: Rolling window for trend data.
+          schema:
+            type: string
+            enum: [week, month, quarter, year]
+            default: month
+      responses:
+        "200":
+          description: Analytics overview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsOverview"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+# ====================================================================== components
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase Auth JWT for the signed-in user.
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: apikey
+      description: Supabase anon/publishable API key.
+
+  parameters:
+    PathId:
+      name: id
+      in: path
+      required: true
+      description: Resource UUID.
+      schema:
+        type: string
+        format: uuid
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque cursor from a previous page's `next_cursor`.
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      description: Maximum items to return.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+
+  responses:
+    BadRequest:
+      description: The request body or parameters were invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Missing or invalid authentication.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    PaymentRequired:
+      description: >
+        A premium feature or plan limit was hit. Free users must upgrade (or have
+        exhausted trial credits).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: The resource does not exist or is not visible to the user (RLS).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+
   schemas:
-    ReservationInput:
-      type: object
-      required: [owner, startTime, endTime, room]
-      properties:
-        owner:
-          type: string
-        startTime:
-          type: number
-          description: Epoch time in milliseconds
-        endTime:
-          type: number
-          description: Epoch time in milliseconds
-        room:
-          type: string
-
-    ReservationPatch:
-      type: object
-      minProperties: 1
-      properties:
-        owner:
-          type: string
-        startTime:
-          type: number
-          description: Epoch time in milliseconds
-        endTime:
-          type: number
-          description: Epoch time in milliseconds
-        room:
-          type: string
-
-    Reservation:
-      type: object
-      required: [reservationId, owner, startTime, endTime, room]
-      properties:
-        reservationId:
-          type: string
-        owner:
-          type: string
-        startTime:
-          type: number
-          description: Epoch time in milliseconds
-        endTime:
-          type: number
-          description: Epoch time in milliseconds
-        room:
-          type: string
-
+    # -------------------------------------------------------------- shared
     Error:
       type: object
-      required: [error, message]
+      required: [error]
       properties:
         error:
+          type: object
+          required: [message]
+          properties:
+            code:
+              type: string
+              description: Stable machine-readable error code.
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+
+    NextCursor:
+      type: [string, "null"]
+      description: Cursor for the next page, or null if there are no more items.
+
+    ScoringResult:
+      type: object
+      description: Result of a completion that ran the XP scoring function.
+      required: [xp_earned, global_xp, global_level]
+      properties:
+        xp_earned:
+          type: integer
+          description: Final XP awarded (may be negative for penalties).
+        base_xp:
+          type: integer
+        streak_multiplier:
+          type: number
+          format: float
+        virtue_bonus:
+          type: number
+          format: float
+        per_virtue_xp:
+          type: integer
+          description: XP applied to each tagged virtue (final_xp / virtue_count).
+        global_xp:
+          type: integer
+        global_level:
+          type: integer
+        current_streak:
+          type: integer
+        ledger_entry_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    # ------------------------------------------------------------- enums
+    SubscriptionTier:
+      type: string
+      enum: [free, premium]
+    RoutineFrequency:
+      type: string
+      enum: [daily, weekly, monthly]
+    GoalStatus:
+      type: string
+      enum: [backlog, active, completed, archived]
+    SessionInstanceStatus:
+      type: string
+      enum: [scheduled, in_progress, completed, skipped]
+    XpSourceType:
+      type: string
+      enum: [routine, goal, session, retrospective, bonus, penalty]
+    BacklogSource:
+      type: string
+      enum: [manual, ai_suggestion, field_log]
+    RetroPeriodType:
+      type: string
+      enum: [weekly, monthly]
+    RetroStatus:
+      type: string
+      enum: [generated, reviewed, skipped]
+    PromptType:
+      type: string
+      enum: [text, textarea, select, scale]
+
+    # ----------------------------------------------------------- profile
+    Profile:
+      type: object
+      properties:
+        id:
           type: string
-        message:
+          format: uuid
+          description: Supabase Auth uid.
+        email:
           type: string
+          format: email
+        display_name:
+          type: [string, "null"]
+        timezone:
+          type: string
+          description: IANA timezone; drives scheduling and streak resets.
+        subscription_tier:
+          $ref: "#/components/schemas/SubscriptionTier"
+        subscription_expires_at:
+          type: [string, "null"]
+          format: date-time
+        global_xp:
+          type: integer
+        global_level:
+          type: integer
+        current_streak:
+          type: integer
+        longest_streak:
+          type: integer
+        streak_multiplier:
+          type: number
+          format: float
+          description: Current multiplier, 1.0–2.0.
+        created_at:
+          type: string
+          format: date-time
+        last_active_at:
+          type: [string, "null"]
+          format: date-time
+
+    Virtue:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 50
+        icon:
+          type: string
+        color:
+          type: string
+          pattern: "^#([0-9a-fA-F]{6})$"
+        xp:
+          type: integer
+        level:
+          type: integer
+        display_order:
+          type: integer
+
+    VirtueHistory:
+      type: object
+      properties:
+        virtue_id:
+          type: string
+          format: uuid
+        points:
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              xp:
+                type: integer
+                description: XP earned on that date.
+              cumulative_xp:
+                type: integer
+              level:
+                type: integer
+
+    XpLedgerEntry:
+      type: object
+      description: Append-only XP transaction. Source of truth for scoring.
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        virtue_id:
+          type: [string, "null"]
+          format: uuid
+          description: Null for global-only XP.
+        source_type:
+          $ref: "#/components/schemas/XpSourceType"
+        source_id:
+          type: string
+          format: uuid
+        base_xp:
+          type: integer
+        multiplier:
+          type: number
+          format: float
+        final_xp:
+          type: integer
+          description: Actual XP awarded; negative for penalties.
+        description:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # ---------------------------------------------------------- routines
+    Routine:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: [string, "null"]
+        frequency:
+          $ref: "#/components/schemas/RoutineFrequency"
+        scheduled_day:
+          type: [integer, "null"]
+          description: Day-of-week (0–6) or day-of-month (1–31). Null for daily.
+        base_xp:
+          type: integer
+        is_active:
+          type: boolean
+        virtue_ids:
+          type: array
+          description: Tagged virtues (many-to-many via routine_virtues).
+          items:
+            type: string
+            format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    RoutineCreate:
+      type: object
+      required: [title, frequency, virtue_ids]
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        frequency:
+          $ref: "#/components/schemas/RoutineFrequency"
+        scheduled_day:
+          type: integer
+          description: Required for weekly/monthly; omit for daily.
+        base_xp:
+          type: integer
+          description: Defaults to the standard value for the frequency.
+        virtue_ids:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+
+    # ------------------------------------------------------------- goals
+    Goal:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 300
+        description:
+          type: [string, "null"]
+        is_quest:
+          type: boolean
+        status:
+          $ref: "#/components/schemas/GoalStatus"
+        due_date:
+          type: [string, "null"]
+          format: date
+        base_xp:
+          type: integer
+        parent_goal_id:
+          type: [string, "null"]
+          format: uuid
+          description: Null for top-level goals; set for subtasks.
+        display_order:
+          type: integer
+        virtue_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        completed_at:
+          type: [string, "null"]
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+
+    GoalCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        description:
+          type: string
+        is_quest:
+          type: boolean
+          default: false
+        status:
+          $ref: "#/components/schemas/GoalStatus"
+        due_date:
+          type: string
+          format: date
+        base_xp:
+          type: integer
+        parent_goal_id:
+          type: string
+          format: uuid
+        virtue_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    GoalUpdate:
+      type: object
+      description: Partial update; only supplied fields are changed.
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        description:
+          type: string
+        is_quest:
+          type: boolean
+        status:
+          $ref: "#/components/schemas/GoalStatus"
+        due_date:
+          type: [string, "null"]
+          format: date
+        display_order:
+          type: integer
+        virtue_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    BacklogItem:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 300
+        notes:
+          type: [string, "null"]
+        source:
+          $ref: "#/components/schemas/BacklogSource"
+        source_id:
+          type: [string, "null"]
+          format: uuid
+          description: Originating field log or retrospective, if applicable.
+        virtue_id:
+          type: [string, "null"]
+          format: uuid
+        promoted_to_goal_id:
+          type: [string, "null"]
+          format: uuid
+          description: Set once promoted to an active goal.
+        created_at:
+          type: string
+          format: date-time
+
+    BacklogItemCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        notes:
+          type: string
+        source:
+          $ref: "#/components/schemas/BacklogSource"
+        source_id:
+          type: string
+          format: uuid
+        virtue_id:
+          type: string
+          format: uuid
+
+    # ---------------------------------------------------------- sessions
+    Session:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          maxLength: 200
+        target_duration_minutes:
+          type: integer
+          description: 30, 60, or 90 (custom durations are premium).
+        recurrence_rule:
+          type: [object, "null"]
+          description: iCal-style RRULE for scheduling.
+          additionalProperties: true
+        base_xp:
+          type: integer
+        is_active:
+          type: boolean
+        virtue_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    SessionCreate:
+      type: object
+      required: [title, target_duration_minutes, virtue_ids]
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        target_duration_minutes:
+          type: integer
+        recurrence_rule:
+          type: object
+          additionalProperties: true
+        base_xp:
+          type: integer
+        virtue_ids:
+          type: array
+          minItems: 1
+          items:
+            type: string
+            format: uuid
+
+    SessionInstance:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        scheduled_at:
+          type: [string, "null"]
+          format: date-time
+        started_at:
+          type: [string, "null"]
+          format: date-time
+        ended_at:
+          type: [string, "null"]
+          format: date-time
+        actual_duration_seconds:
+          type: [integer, "null"]
+        status:
+          $ref: "#/components/schemas/SessionInstanceStatus"
+        xp_earned:
+          type: [integer, "null"]
+        skip_penalty_xp:
+          type: [integer, "null"]
+        focus_mode_activated:
+          type: boolean
+
+    TimerState:
+      type: object
+      description: State returned when a session instance starts.
+      properties:
+        instance:
+          $ref: "#/components/schemas/SessionInstance"
+        server_time:
+          type: string
+          format: date-time
+          description: Server clock for reconciling client countdown.
+        target_duration_seconds:
+          type: integer
+
+    # -------------------------------------------------------- field logs
+    FieldLog:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        template_id:
+          type: [string, "null"]
+          format: uuid
+          description: Null for basic text logs.
+        content:
+          type: object
+          description: >
+            Template responses, or `{ "text": "..." }` for basic logs.
+          additionalProperties: true
+        ai_analysis:
+          type: [string, "null"]
+          description: AI-generated analysis (premium; stored at write time).
+        prefix:
+          type: [string, "null"]
+          maxLength: 50
+        followup_reminder_at:
+          type: [string, "null"]
+          format: date-time
+        followup_task_id:
+          type: [string, "null"]
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+
+    FieldLogCreate:
+      type: object
+      required: [content]
+      properties:
+        template_id:
+          type: string
+          format: uuid
+          description: Omit for a basic text log.
+        content:
+          type: object
+          additionalProperties: true
+        prefix:
+          type: string
+          maxLength: 50
+        followup_reminder_at:
+          type: string
+          format: date-time
+        virtue_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    FieldLogTemplate:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 100
+        prefix:
+          type: [string, "null"]
+          maxLength: 50
+        schema:
+          $ref: "#/components/schemas/TemplateSchema"
+        ai_prompt_template:
+          type: [string, "null"]
+          description: Template for AI analysis. Null to skip AI.
+        creates_followup:
+          type: boolean
+        is_active:
+          type: boolean
+
+    FieldLogTemplateCreate:
+      type: object
+      required: [name, schema]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        prefix:
+          type: string
+          maxLength: 50
+        schema:
+          $ref: "#/components/schemas/TemplateSchema"
+        ai_prompt_template:
+          type: string
+        creates_followup:
+          type: boolean
+          default: false
+
+    TemplateSchema:
+      type: object
+      description: Ordered prompts that define a field log template form.
+      required: [prompts]
+      properties:
+        prompts:
+          type: array
+          items:
+            $ref: "#/components/schemas/TemplatePrompt"
+        ai_prompt:
+          type: string
+
+    TemplatePrompt:
+      type: object
+      required: [id, type, label]
+      properties:
+        id:
+          type: string
+        type:
+          $ref: "#/components/schemas/PromptType"
+        label:
+          type: string
+        min:
+          type: integer
+          description: For `scale` prompts.
+        max:
+          type: integer
+          description: For `scale` prompts.
+        options:
+          type: array
+          description: For `select` prompts.
+          items:
+            type: string
+
+    # ----------------------------------------------------- retrospectives
+    RetrospectiveSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        period_type:
+          $ref: "#/components/schemas/RetroPeriodType"
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        status:
+          $ref: "#/components/schemas/RetroStatus"
+        xp_earned:
+          type: [integer, "null"]
+        created_at:
+          type: string
+          format: date-time
+
+    Retrospective:
+      allOf:
+        - $ref: "#/components/schemas/RetrospectiveSummary"
+        - type: object
+          properties:
+            generated_report:
+              type: object
+              description: AI-generated report with structured sections.
+              additionalProperties: true
+            analytics_data:
+              type: object
+              description: Pre-computed chart data.
+              additionalProperties: true
+            chat_history:
+              type: array
+              items:
+                $ref: "#/components/schemas/ChatMessage"
+            user_notes:
+              type: [string, "null"]
+
+    ChatMessage:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # ---------------------------------------------------------- schedule
+    ScheduleDay:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduleItem"
+
+    ScheduleItem:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [routine, session]
+        ref_id:
+          type: string
+          format: uuid
+          description: The routine or session definition id.
+        title:
+          type: string
+        scheduled_at:
+          type: [string, "null"]
+          format: date-time
+        base_xp:
+          type: integer
+        virtue_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    # --------------------------------------------------------- analytics
+    AnalyticsOverview:
+      type: object
+      properties:
+        tier:
+          $ref: "#/components/schemas/SubscriptionTier"
+        current_streak:
+          type: integer
+        longest_streak:
+          type: integer
+        global_level:
+          type: integer
+        global_xp:
+          type: integer
+        xp_over_time:
+          type: array
+          description: Premium. XP per day across the requested period.
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                format: date
+              xp:
+                type: integer
+        completion_rate_by_virtue:
+          type: array
+          description: Premium.
+          items:
+            type: object
+            properties:
+              virtue_id:
+                type: string
+                format: uuid
+              completion_rate:
+                type: number
+                format: float
+        session_adherence:
+          type: [number, "null"]
+          format: float
+          description: Premium. Ratio of completed to scheduled sessions.
+
+    # --------------------------------------------------------------- today
+    TodayPayload:
+      type: object
+      properties:
+        streak:
+          type: object
+          properties:
+            current_streak:
+              type: integer
+            streak_multiplier:
+              type: number
+              format: float
+            next_tier_at:
+              type: [integer, "null"]
+              description: Streak days needed for the next multiplier tier.
+        active_quests:
+          type: array
+          items:
+            $ref: "#/components/schemas/Goal"
+        scheduled_sessions:
+          type: array
+          items:
+            $ref: "#/components/schemas/SessionInstance"
+        daily_routines:
+          type: array
+          items:
+            $ref: "#/components/schemas/Routine"
+        due_routines:
+          type: array
+          description: Weekly/monthly routines scheduled for today.
+          items:
+            $ref: "#/components/schemas/Routine"
+        followup_reminders:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldLog"
+        retrospective_prompt:
+          type: [object, "null"]
+          description: Present (premium) when a retrospective is due.
+          properties:
+            retrospective_id:
+              type: string
+              format: uuid
+            period_type:
+              $ref: "#/components/schemas/RetroPeriodType"

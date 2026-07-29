@@ -23,7 +23,7 @@ export const dataset: ReservationInput[] = [
 ];
 
 export async function seed(
-  app: ReturnType<typeof import('supertest').default>,
+  app: ReturnType<typeof import('supertest')>,
   data: ReservationInput[] = dataset,
 ): Promise<string[]> {
   const ids: string[] = [];
