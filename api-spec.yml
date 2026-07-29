@@ -1,0 +1,254 @@
+openapi: 3.0.3
+info:
+  title: Reservations API
+  version: 1.0.0
+
+tags:
+  - name: reservation
+    description: Reservation management
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+
+  /reservation:
+    post:
+      tags: [reservation]
+      summary: Create a reservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservationInput'
+      responses:
+        '201':
+          description: Reservation created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [reservationId]
+                properties:
+                  reservationId:
+                    type: string
+
+    get:
+      tags: [reservation]
+      summary: Search reservations
+      parameters:
+        - name: owner
+          in: query
+          schema:
+            type: string
+        - name: startTime
+          in: query
+          schema:
+            type: number
+        - name: endTime
+          in: query
+          schema:
+            type: number
+        - name: room
+          in: query
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  nextCursor:
+                    type: string
+                    nullable: true
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Reservation'
+
+  /reservation/{reservationId}:
+    parameters:
+      - name: reservationId
+        in: path
+        required: true
+        schema:
+          type: string
+
+    get:
+      tags: [reservation]
+      summary: Get a reservation
+      responses:
+        '200':
+          description: Reservation found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '404':
+          description: Reservation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      tags: [reservation]
+      summary: Update a reservation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReservationPatch'
+      responses:
+        '200':
+          description: Reservation updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+        '404':
+          description: Reservation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [reservation]
+      summary: Delete a reservation
+      responses:
+        '204':
+          description: Reservation deleted
+        '404':
+          description: Reservation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /availability:
+    get:
+      tags: [reservation]
+      summary: Search room availability
+      parameters:
+        - name: startTime
+          in: query
+          schema:
+            type: number
+        - name: endTime
+          in: query
+          schema:
+            type: number
+        - name: cursor
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        '200':
+          description: Availability results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  nextCursor:
+                    type: string
+                    nullable: true
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [room]
+                      properties:
+                        room:
+                          type: string
+
+components:
+  schemas:
+    ReservationInput:
+      type: object
+      required: [owner, startTime, endTime, room]
+      properties:
+        owner:
+          type: string
+        startTime:
+          type: number
+          description: Epoch time in milliseconds
+        endTime:
+          type: number
+          description: Epoch time in milliseconds
+        room:
+          type: string
+
+    ReservationPatch:
+      type: object
+      minProperties: 1
+      properties:
+        owner:
+          type: string
+        startTime:
+          type: number
+          description: Epoch time in milliseconds
+        endTime:
+          type: number
+          description: Epoch time in milliseconds
+        room:
+          type: string
+
+    Reservation:
+      type: object
+      required: [reservationId, owner, startTime, endTime, room]
+      properties:
+        reservationId:
+          type: string
+        owner:
+          type: string
+        startTime:
+          type: number
+          description: Epoch time in milliseconds
+        endTime:
+          type: number
+          description: Epoch time in milliseconds
+        room:
+          type: string
+
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+        message:
+          type: string

@@ -1,0 +1,5 @@
+server:
+  port: 8080
+# Secrets go here as ENC(iv:authTag:ciphertext) values.
+# Encrypt with: CONFIG_ENCRYPTION_KEY=<key> npx ts-node scripts/encrypt-secret.ts "value"
+# Generate a key with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"

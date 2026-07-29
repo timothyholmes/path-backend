@@ -1,0 +1,28 @@
+{
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Launch Program",
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}/dist/index.js",
+      "preLaunchTask": "tsc: build - tsconfig.json",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug Tests",
+      "skipFiles": ["<node_internals>/**"],
+      "runtimeExecutable": "/Users/timholmes/.nvm/versions/node/v20.14.0/bin/node",
+      "program": "${workspaceFolder}/node_modules/.bin/vitest",
+      "args": ["--pool=forks", "run"],
+      "console": "integratedTerminal",
+      "sourceMaps": true
+    }
+  ]
+}
