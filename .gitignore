@@ -1,5 +1,6 @@
 node_modules/
 dist/
-./claude/
+.claude/
+.vscode/
 .env
 config/secrets.yml
