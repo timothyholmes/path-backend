@@ -14,12 +14,33 @@ npm run lint            # Lint (eslint .)
 npm run lint:fix       # Lint and auto-fix
 npm run format          # Format the repo with Prettier
 npm run format:check   # Check formatting without writing
+npm run typecheck      # tsc --noEmit over src, test, and db
 ```
 
 Run a single test file:
 
 ```bash
 npx vitest --pool=forks run test/routes/reservations.test.ts
+```
+
+### Database
+
+```bash
+npm run db:start        # Start the local Supabase stack (needs Docker)
+npm run db:stop         # Stop it
+npm run db:reset        # Drop, re-apply all migrations, run supabase/seed.sql
+npm run db:migrate:new  # Scaffold a migration: npm run db:migrate:new -- <name>
+npm run db:diff         # Diff the live schema into a new migration
+npm run db:push         # Apply pending migrations to a linked remote project
+npm run db:seed         # Seed a scenario (see below)
+npm run db:types        # Regenerate db/types.generated.ts
+npm run db:test         # pgTAP suite (supabase/tests)
+```
+
+Against a plain PostgreSQL server (no Supabase), set `PATH_DB_MODE=bare`:
+
+```bash
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/postgres PATH_DB_MODE=bare npm run db:migrate
 ```
 
 ## Architecture
@@ -48,8 +69,45 @@ Express 5 + TypeScript backend for a room reservations API. The OpenAPI spec (`a
 
 **Tests** use `supertest` against a real `Server` instance — no mocks. `test/fixtures.ts` provides a shared six-reservation dataset plus a `seed()` helper.
 
-**Storage**
-Database is completely in memory by design. Do not add any persistence. It is acceptable to lose data between restarts.
+**Storage (Express sample only)**
+The Reservation/Availability code is leftover scaffolding and stores everything in a `Map` by design — do not add persistence to _it_, and it is fine for it to lose data between restarts. This says nothing about the Path AI database below, which is a real PostgreSQL schema.
+
+## Database
+
+Path AI's backend is Supabase (technical design §2). The database is not a passive store: XP scoring, streak math, and the multiplier logic run as PostgreSQL functions so completions are transactional and free of read-modify-write races, and Row Level Security is the actual boundary between users because the mobile client is allowed to query PostgREST directly.
+
+**Migrations** (`supabase/migrations/*.sql`) are the source of truth for the schema — hand-written SQL, applied in filename order. Create one with `npm run db:migrate:new -- <name>` so it gets a proper timestamp. Two runners apply the identical files:
+
+- The Supabase CLI (`db reset`, `db push`) for local and deployed Supabase.
+- `db/migrate.ts` for any `DATABASE_URL`, including a stock `postgres:17` container in CI. It writes the same `supabase_migrations.schema_migrations` ledger the CLI reads, so the two stay interchangeable.
+
+**Bare-PostgreSQL mode** — `db/compat/0000_supabase_shim.sql` creates the `auth` schema, `auth.uid()`/`auth.jwt()`/`auth.role()`, and the `anon`/`authenticated`/`service_role` roles, applied only when `PATH_DB_MODE=bare`. This exists so migrations never need Supabase-specific branches; write them as if Supabase is always there.
+
+**Layout**
+
+- `supabase/migrations/` — schema, functions, RLS, plan limits, cron
+- `supabase/seed.sql` — one dev account, applied by `supabase db reset`
+- `supabase/tests/` — pgTAP: RLS isolation, scoring, streaks, plan limits, constraints
+- `db/seed/` — deterministic scenario seeding
+- `db/types.generated.ts` — generated; regenerate with `npm run db:types` after any schema change
+- `test/db/` — vitest coverage for the runner and the seeder
+
+**Conventions**
+
+- `timestamptz` everywhere. Streaks reset at each user's local midnight, which naive timestamps cannot express.
+- Every user-scoped table carries a denormalised `user_id` so RLS policies are a flat `auth.uid() = user_id`. Child tables reference the parent's `(id, user_id)` pair, which makes cross-user rows unrepresentable rather than merely discouraged.
+- New tables need RLS enabled plus the four owner policies, and explicit grants (`authenticated` only; revoke from `anon`). `supabase/tests/00_schema.sql` fails if any public table has RLS off.
+- `SECURITY DEFINER` functions must pin `search_path` and check `auth.uid()` themselves — they bypass RLS, and PostgREST exposes them as RPC to any signed-in user.
+- Free-tier caps are enforced by `AFTER ... FOR EACH STATEMENT` triggers with transition tables, not per-row triggers: a row-level trigger cannot see the rest of its own statement, so one multi-row INSERT would bypass it.
+- `xp_ledger` is partitioned by month, with partitions in the `private` schema so they are unreachable through PostgREST. Backdating rows requires calling `private.ensure_xp_ledger_partitions()` first.
+
+**Seeding** — scenarios live in `db/seed/scenarios/` and are chosen explicitly:
+
+```bash
+npm run db:seed -- --scenario=premium-power-user
+```
+
+`empty`, `new-user`, `active-free` (at every plan cap), `premium-power-user` (90 days, streak at the 2.0 cap, all premium features), `edge-cases` (broken streaks, negative XP, partition boundaries, lapsed subscription). Ids are derived with `uuidv5`, so they are identical on every run and safe to hard-code in a test. Scenarios append XP ledger rows and let `finalize()` derive virtue XP, levels, `daily_activity`, and streaks from them — never compute XP totals in TypeScript.
 
 ## Key conventions
 

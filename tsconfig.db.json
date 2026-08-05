@@ -5,5 +5,5 @@
     "noEmit": true
   },
   "exclude": [],
-  "include": ["src", "test", "db", "vitest.config.mts"]
+  "include": ["src", "db"]
 }

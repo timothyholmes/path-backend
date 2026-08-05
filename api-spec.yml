@@ -74,14 +74,14 @@ paths:
         due weekly/monthly routines, follow-up reminders, and (premium) a
         retrospective prompt if one is due.
       responses:
-        "200":
+        '200':
           description: Today payload.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TodayPayload"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                $ref: '#/components/schemas/TodayPayload'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   # ---------------------------------------------------------------- profile
   /profile:
@@ -90,14 +90,14 @@ paths:
       tags: [profile]
       summary: User profile, global level, streak, virtue summary
       responses:
-        "200":
+        '200':
           description: Profile with derived level and streak state.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Profile"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                $ref: '#/components/schemas/Profile'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /profile/virtues:
     get:
@@ -105,16 +105,16 @@ paths:
       tags: [profile]
       summary: All virtues with levels and XP
       responses:
-        "200":
+        '200':
           description: The user's virtues, ordered by display_order.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Virtue"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                  $ref: '#/components/schemas/Virtue'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /profile/virtues/{id}/history:
     get:
@@ -122,7 +122,7 @@ paths:
       tags: [profile]
       summary: XP history for a virtue (chart data)
       parameters:
-        - $ref: "#/components/parameters/PathId"
+        - $ref: '#/components/parameters/PathId'
         - name: from
           in: query
           description: Start date (inclusive) for the history window.
@@ -136,16 +136,16 @@ paths:
             type: string
             format: date
       responses:
-        "200":
+        '200':
           description: Time-series XP data for the virtue.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/VirtueHistory"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
+                $ref: '#/components/schemas/VirtueHistory'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /profile/xp-ledger:
     get:
@@ -153,10 +153,10 @@ paths:
       tags: [profile]
       summary: XP transaction history (cursor-paginated)
       parameters:
-        - $ref: "#/components/parameters/Cursor"
-        - $ref: "#/components/parameters/Limit"
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
       responses:
-        "200":
+        '200':
           description: A page of XP ledger entries, newest first.
           content:
             application/json:
@@ -167,11 +167,11 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: "#/components/schemas/XpLedgerEntry"
+                      $ref: '#/components/schemas/XpLedgerEntry'
                   next_cursor:
-                    $ref: "#/components/schemas/NextCursor"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                    $ref: '#/components/schemas/NextCursor'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   # --------------------------------------------------------------- routines
   /routines:
@@ -188,18 +188,18 @@ paths:
         - name: frequency
           in: query
           schema:
-            $ref: "#/components/schemas/RoutineFrequency"
+            $ref: '#/components/schemas/RoutineFrequency'
       responses:
-        "200":
+        '200':
           description: The user's routines.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Routine"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                  $ref: '#/components/schemas/Routine'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
       operationId: createRoutine
       tags: [routines]
@@ -212,20 +212,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RoutineCreate"
+              $ref: '#/components/schemas/RoutineCreate'
       responses:
-        "201":
+        '201':
           description: The created routine.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Routine"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "402":
-          $ref: "#/components/responses/PaymentRequired"
+                $ref: '#/components/schemas/Routine'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
 
   /routines/{id}/complete:
     post:
@@ -237,7 +237,7 @@ paths:
         PostgreSQL function, applying the current streak multiplier and multi-virtue
         bonus. Returns the awarded XP and updated level/streak state.
       parameters:
-        - $ref: "#/components/parameters/PathId"
+        - $ref: '#/components/parameters/PathId'
       requestBody:
         required: false
         content:
@@ -250,22 +250,22 @@ paths:
                   format: date-time
                   description: Override completion time. Defaults to now.
       responses:
-        "200":
+        '200':
           description: Completion recorded with scoring result.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ScoringResult"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
+                $ref: '#/components/schemas/ScoringResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
           description: Routine already completed for this period.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   # ------------------------------------------------------------------ goals
   /goals:
@@ -277,7 +277,7 @@ paths:
         - name: status
           in: query
           schema:
-            $ref: "#/components/schemas/GoalStatus"
+            $ref: '#/components/schemas/GoalStatus'
         - name: is_quest
           in: query
           schema:
@@ -289,16 +289,16 @@ paths:
             type: string
             format: uuid
       responses:
-        "200":
+        '200':
           description: Matching goals.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Goal"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                  $ref: '#/components/schemas/Goal'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
       operationId: createGoal
       tags: [goals]
@@ -311,20 +311,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GoalCreate"
+              $ref: '#/components/schemas/GoalCreate'
       responses:
-        "201":
+        '201':
           description: The created goal.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Goal"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "402":
-          $ref: "#/components/responses/PaymentRequired"
+                $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
 
   /goals/{id}:
     patch:
@@ -332,26 +332,26 @@ paths:
       tags: [goals]
       summary: Update goal (status, quest flag, due date)
       parameters:
-        - $ref: "#/components/parameters/PathId"
+        - $ref: '#/components/parameters/PathId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GoalUpdate"
+              $ref: '#/components/schemas/GoalUpdate'
       responses:
-        "200":
+        '200':
           description: The updated goal.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Goal"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
+                $ref: '#/components/schemas/Goal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /goals/{id}/complete:
     post:
@@ -362,24 +362,24 @@ paths:
         Marks the goal completed and invokes `calculate_and_award_xp`. Quests award a
         bonus over standard goals.
       parameters:
-        - $ref: "#/components/parameters/PathId"
+        - $ref: '#/components/parameters/PathId'
       responses:
-        "200":
+        '200':
           description: Completion recorded with scoring result.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ScoringResult"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
+                $ref: '#/components/schemas/ScoringResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
           description: Goal already completed.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   /goals/backlog:
     get:
@@ -387,16 +387,16 @@ paths:
       tags: [goals]
       summary: Goal backlog items
       responses:
-        "200":
+        '200':
           description: Backlog ideas not yet promoted to goals.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/BacklogItem"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                  $ref: '#/components/schemas/BacklogItem'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
       operationId: addBacklogItem
       tags: [goals]
@@ -406,18 +406,18 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/BacklogItemCreate"
+              $ref: '#/components/schemas/BacklogItemCreate'
       responses:
-        "201":
+        '201':
           description: The created backlog item.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BacklogItem"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                $ref: '#/components/schemas/BacklogItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /goals/backlog/{id}/promote:
     post:
@@ -425,7 +425,7 @@ paths:
       tags: [goals]
       summary: Promote backlog item to active goal
       parameters:
-        - $ref: "#/components/parameters/PathId"
+        - $ref: '#/components/parameters/PathId'
       requestBody:
         required: false
         content:
@@ -443,22 +443,22 @@ paths:
                 base_xp:
                   type: integer
       responses:
-        "201":
+        '201':
           description: The newly created goal; the backlog item is marked promoted.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Goal"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
+                $ref: '#/components/schemas/Goal'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
           description: Backlog item already promoted.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   # --------------------------------------------------------------- sessions
   /sessions:
@@ -472,16 +472,16 @@ paths:
           schema:
             type: boolean
       responses:
-        "200":
+        '200':
           description: The user's session definitions.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/Session"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                  $ref: '#/components/schemas/Session'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
       operationId: createSession
       tags: [sessions]
@@ -494,20 +494,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SessionCreate"
+              $ref: '#/components/schemas/SessionCreate'
       responses:
-        "201":
+        '201':
           description: The created session definition.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Session"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "402":
-          $ref: "#/components/responses/PaymentRequired"
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
 
   /sessions/{id}/start:
     post:
@@ -518,7 +518,7 @@ paths:
         Creates (or resumes) a session instance in `in_progress` and returns the
         timer state the client renders in the fullscreen timer.
       parameters:
-        - $ref: "#/components/parameters/PathId"
+        - $ref: '#/components/parameters/PathId'
       requestBody:
         required: false
         content:
@@ -531,16 +531,16 @@ paths:
                   description: Whether iOS Focus/DND was triggered on start.
                   default: false
       responses:
-        "200":
+        '200':
           description: Timer state for the started instance.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TimerState"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
+                $ref: '#/components/schemas/TimerState'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /sessions/{id}/end:
     post:
@@ -551,7 +551,7 @@ paths:
         Ends the in-progress instance. XP is proportional to time completed; ending
         early still awards partial credit.
       parameters:
-        - $ref: "#/components/parameters/PathId"
+        - $ref: '#/components/parameters/PathId'
       requestBody:
         required: false
         content:
@@ -566,22 +566,22 @@ paths:
                     Elapsed focused time. If omitted, computed server-side from the
                     instance start timestamp.
       responses:
-        "200":
+        '200':
           description: Instance ended with scoring result.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ScoringResult"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
+                $ref: '#/components/schemas/ScoringResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
           description: No in-progress instance to end.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   /sessions/{id}/skip:
     post:
@@ -592,18 +592,18 @@ paths:
         Marks the scheduled instance skipped and logs a negative XP entry
         (25% of the session's base XP). Does not break the streak.
       parameters:
-        - $ref: "#/components/parameters/PathId"
+        - $ref: '#/components/parameters/PathId'
       responses:
-        "200":
+        '200':
           description: Instance skipped with penalty applied.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ScoringResult"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
+                $ref: '#/components/schemas/ScoringResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   # ------------------------------------------------------------- field-logs
   /field-logs:
@@ -612,8 +612,8 @@ paths:
       tags: [field-logs]
       summary: Logs (paginated, filterable)
       parameters:
-        - $ref: "#/components/parameters/Cursor"
-        - $ref: "#/components/parameters/Limit"
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
         - name: template_id
           in: query
           description: Filter to logs created from a given template.
@@ -625,7 +625,7 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        '200':
           description: A page of field logs, newest first.
           content:
             application/json:
@@ -636,11 +636,11 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: "#/components/schemas/FieldLog"
+                      $ref: '#/components/schemas/FieldLog'
                   next_cursor:
-                    $ref: "#/components/schemas/NextCursor"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                    $ref: '#/components/schemas/NextCursor'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
     post:
       operationId: createFieldLog
       tags: [field-logs]
@@ -655,20 +655,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/FieldLogCreate"
+              $ref: '#/components/schemas/FieldLogCreate'
       responses:
-        "201":
+        '201':
           description: The created field log (with `ai_analysis` when applicable).
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/FieldLog"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "402":
-          $ref: "#/components/responses/PaymentRequired"
+                $ref: '#/components/schemas/FieldLog'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
 
   /field-logs/templates:
     get:
@@ -676,18 +676,18 @@ paths:
       tags: [field-logs]
       summary: List templates (premium)
       responses:
-        "200":
+        '200':
           description: The user's field log templates.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/FieldLogTemplate"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "402":
-          $ref: "#/components/responses/PaymentRequired"
+                  $ref: '#/components/schemas/FieldLogTemplate'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
     post:
       operationId: createFieldLogTemplate
       tags: [field-logs]
@@ -697,20 +697,20 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/FieldLogTemplateCreate"
+              $ref: '#/components/schemas/FieldLogTemplateCreate'
       responses:
-        "201":
+        '201':
           description: The created template.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/FieldLogTemplate"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "402":
-          $ref: "#/components/responses/PaymentRequired"
+                $ref: '#/components/schemas/FieldLogTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
 
   # --------------------------------------------------------- retrospectives
   /retrospectives:
@@ -722,22 +722,22 @@ paths:
         - name: period_type
           in: query
           schema:
-            $ref: "#/components/schemas/RetroPeriodType"
+            $ref: '#/components/schemas/RetroPeriodType'
         - name: status
           in: query
           schema:
-            $ref: "#/components/schemas/RetroStatus"
+            $ref: '#/components/schemas/RetroStatus'
       responses:
-        "200":
+        '200':
           description: Retrospective summaries.
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: "#/components/schemas/RetrospectiveSummary"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                  $ref: '#/components/schemas/RetrospectiveSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /retrospectives/{id}:
     get:
@@ -745,18 +745,18 @@ paths:
       tags: [retrospectives]
       summary: Full retro with report + analytics
       parameters:
-        - $ref: "#/components/parameters/PathId"
+        - $ref: '#/components/parameters/PathId'
       responses:
-        "200":
+        '200':
           description: The full retrospective including report, analytics, and chat.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Retrospective"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
+                $ref: '#/components/schemas/Retrospective'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /retrospectives/{id}/review:
     post:
@@ -767,7 +767,7 @@ paths:
         Marks the retrospective reviewed, optionally attaching user reflection notes,
         and awards the review XP.
       parameters:
-        - $ref: "#/components/parameters/PathId"
+        - $ref: '#/components/parameters/PathId'
       requestBody:
         required: false
         content:
@@ -779,16 +779,16 @@ paths:
                   type: string
                   description: Reflections added during review.
       responses:
-        "200":
+        '200':
           description: Reviewed retrospective with scoring result.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ScoringResult"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "404":
-          $ref: "#/components/responses/NotFound"
+                $ref: '#/components/schemas/ScoringResult'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /retrospectives/{id}/chat:
     post:
@@ -800,7 +800,7 @@ paths:
         assistant's reply (Gemini 2.5 Flash). Chat is capped at 20 messages per retro
         to manage cost; exceeding the cap returns `409 Conflict`.
       parameters:
-        - $ref: "#/components/parameters/PathId"
+        - $ref: '#/components/parameters/PathId'
       requestBody:
         required: true
         content:
@@ -813,7 +813,7 @@ paths:
                   type: string
                   description: The user's chat message.
       responses:
-        "200":
+        '200':
           description: The assistant's reply and the updated message count.
           content:
             application/json:
@@ -822,22 +822,22 @@ paths:
                 required: [reply]
                 properties:
                   reply:
-                    $ref: "#/components/schemas/ChatMessage"
+                    $ref: '#/components/schemas/ChatMessage'
                   message_count:
                     type: integer
                     description: Total messages used of the 20-message cap.
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "402":
-          $ref: "#/components/responses/PaymentRequired"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
           description: Per-retro message cap reached.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
+                $ref: '#/components/schemas/Error'
 
   # --------------------------------------------------------------- schedule
   /schedule:
@@ -855,10 +855,10 @@ paths:
           schema:
             type: string
             format: date
-        - $ref: "#/components/parameters/Cursor"
-        - $ref: "#/components/parameters/Limit"
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
       responses:
-        "200":
+        '200':
           description: A page of scheduled items grouped by date.
           content:
             application/json:
@@ -869,11 +869,11 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: "#/components/schemas/ScheduleDay"
+                      $ref: '#/components/schemas/ScheduleDay'
                   next_cursor:
-                    $ref: "#/components/schemas/NextCursor"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                    $ref: '#/components/schemas/NextCursor'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   # -------------------------------------------------------------- analytics
   /analytics/overview:
@@ -893,14 +893,14 @@ paths:
             enum: [week, month, quarter, year]
             default: month
       responses:
-        "200":
+        '200':
           description: Analytics overview.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/AnalyticsOverview"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
+                $ref: '#/components/schemas/AnalyticsOverview'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
 # ====================================================================== components
 components:
@@ -947,13 +947,13 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: '#/components/schemas/Error'
     Unauthorized:
       description: Missing or invalid authentication.
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: '#/components/schemas/Error'
     PaymentRequired:
       description: >
         A premium feature or plan limit was hit. Free users must upgrade (or have
@@ -961,13 +961,13 @@ components:
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: '#/components/schemas/Error'
     NotFound:
       description: The resource does not exist or is not visible to the user (RLS).
       content:
         application/json:
           schema:
-            $ref: "#/components/schemas/Error"
+            $ref: '#/components/schemas/Error'
 
   schemas:
     # -------------------------------------------------------------- shared
@@ -989,7 +989,7 @@ components:
               additionalProperties: true
 
     NextCursor:
-      type: [string, "null"]
+      type: [string, 'null']
       description: Cursor for the next page, or null if there are no more items.
 
     ScoringResult:
@@ -1064,14 +1064,14 @@ components:
           type: string
           format: email
         display_name:
-          type: [string, "null"]
+          type: [string, 'null']
         timezone:
           type: string
           description: IANA timezone; drives scheduling and streak resets.
         subscription_tier:
-          $ref: "#/components/schemas/SubscriptionTier"
+          $ref: '#/components/schemas/SubscriptionTier'
         subscription_expires_at:
-          type: [string, "null"]
+          type: [string, 'null']
           format: date-time
         global_xp:
           type: integer
@@ -1089,7 +1089,7 @@ components:
           type: string
           format: date-time
         last_active_at:
-          type: [string, "null"]
+          type: [string, 'null']
           format: date-time
 
     Virtue:
@@ -1108,7 +1108,7 @@ components:
           type: string
         color:
           type: string
-          pattern: "^#([0-9a-fA-F]{6})$"
+          pattern: '^#([0-9a-fA-F]{6})$'
         xp:
           type: integer
         level:
@@ -1149,11 +1149,11 @@ components:
           type: string
           format: uuid
         virtue_id:
-          type: [string, "null"]
+          type: [string, 'null']
           format: uuid
           description: Null for global-only XP.
         source_type:
-          $ref: "#/components/schemas/XpSourceType"
+          $ref: '#/components/schemas/XpSourceType'
         source_id:
           type: string
           format: uuid
@@ -1185,11 +1185,11 @@ components:
           type: string
           maxLength: 200
         description:
-          type: [string, "null"]
+          type: [string, 'null']
         frequency:
-          $ref: "#/components/schemas/RoutineFrequency"
+          $ref: '#/components/schemas/RoutineFrequency'
         scheduled_day:
-          type: [integer, "null"]
+          type: [integer, 'null']
           description: Day-of-week (0–6) or day-of-month (1–31). Null for daily.
         base_xp:
           type: integer
@@ -1215,7 +1215,7 @@ components:
         description:
           type: string
         frequency:
-          $ref: "#/components/schemas/RoutineFrequency"
+          $ref: '#/components/schemas/RoutineFrequency'
         scheduled_day:
           type: integer
           description: Required for weekly/monthly; omit for daily.
@@ -1243,18 +1243,18 @@ components:
           type: string
           maxLength: 300
         description:
-          type: [string, "null"]
+          type: [string, 'null']
         is_quest:
           type: boolean
         status:
-          $ref: "#/components/schemas/GoalStatus"
+          $ref: '#/components/schemas/GoalStatus'
         due_date:
-          type: [string, "null"]
+          type: [string, 'null']
           format: date
         base_xp:
           type: integer
         parent_goal_id:
-          type: [string, "null"]
+          type: [string, 'null']
           format: uuid
           description: Null for top-level goals; set for subtasks.
         display_order:
@@ -1265,7 +1265,7 @@ components:
             type: string
             format: uuid
         completed_at:
-          type: [string, "null"]
+          type: [string, 'null']
           format: date-time
         created_at:
           type: string
@@ -1284,7 +1284,7 @@ components:
           type: boolean
           default: false
         status:
-          $ref: "#/components/schemas/GoalStatus"
+          $ref: '#/components/schemas/GoalStatus'
         due_date:
           type: string
           format: date
@@ -1311,9 +1311,9 @@ components:
         is_quest:
           type: boolean
         status:
-          $ref: "#/components/schemas/GoalStatus"
+          $ref: '#/components/schemas/GoalStatus'
         due_date:
-          type: [string, "null"]
+          type: [string, 'null']
           format: date
         display_order:
           type: integer
@@ -1336,18 +1336,18 @@ components:
           type: string
           maxLength: 300
         notes:
-          type: [string, "null"]
+          type: [string, 'null']
         source:
-          $ref: "#/components/schemas/BacklogSource"
+          $ref: '#/components/schemas/BacklogSource'
         source_id:
-          type: [string, "null"]
+          type: [string, 'null']
           format: uuid
           description: Originating field log or retrospective, if applicable.
         virtue_id:
-          type: [string, "null"]
+          type: [string, 'null']
           format: uuid
         promoted_to_goal_id:
-          type: [string, "null"]
+          type: [string, 'null']
           format: uuid
           description: Set once promoted to an active goal.
         created_at:
@@ -1364,7 +1364,7 @@ components:
         notes:
           type: string
         source:
-          $ref: "#/components/schemas/BacklogSource"
+          $ref: '#/components/schemas/BacklogSource'
         source_id:
           type: string
           format: uuid
@@ -1389,7 +1389,7 @@ components:
           type: integer
           description: 30, 60, or 90 (custom durations are premium).
         recurrence_rule:
-          type: [object, "null"]
+          type: [object, 'null']
           description: iCal-style RRULE for scheduling.
           additionalProperties: true
         base_xp:
@@ -1439,22 +1439,22 @@ components:
           type: string
           format: uuid
         scheduled_at:
-          type: [string, "null"]
+          type: [string, 'null']
           format: date-time
         started_at:
-          type: [string, "null"]
+          type: [string, 'null']
           format: date-time
         ended_at:
-          type: [string, "null"]
+          type: [string, 'null']
           format: date-time
         actual_duration_seconds:
-          type: [integer, "null"]
+          type: [integer, 'null']
         status:
-          $ref: "#/components/schemas/SessionInstanceStatus"
+          $ref: '#/components/schemas/SessionInstanceStatus'
         xp_earned:
-          type: [integer, "null"]
+          type: [integer, 'null']
         skip_penalty_xp:
-          type: [integer, "null"]
+          type: [integer, 'null']
         focus_mode_activated:
           type: boolean
 
@@ -1463,7 +1463,7 @@ components:
       description: State returned when a session instance starts.
       properties:
         instance:
-          $ref: "#/components/schemas/SessionInstance"
+          $ref: '#/components/schemas/SessionInstance'
         server_time:
           type: string
           format: date-time
@@ -1482,7 +1482,7 @@ components:
           type: string
           format: uuid
         template_id:
-          type: [string, "null"]
+          type: [string, 'null']
           format: uuid
           description: Null for basic text logs.
         content:
@@ -1491,16 +1491,16 @@ components:
             Template responses, or `{ "text": "..." }` for basic logs.
           additionalProperties: true
         ai_analysis:
-          type: [string, "null"]
+          type: [string, 'null']
           description: AI-generated analysis (premium; stored at write time).
         prefix:
-          type: [string, "null"]
+          type: [string, 'null']
           maxLength: 50
         followup_reminder_at:
-          type: [string, "null"]
+          type: [string, 'null']
           format: date-time
         followup_task_id:
-          type: [string, "null"]
+          type: [string, 'null']
           format: uuid
         created_at:
           type: string
@@ -1542,12 +1542,12 @@ components:
           type: string
           maxLength: 100
         prefix:
-          type: [string, "null"]
+          type: [string, 'null']
           maxLength: 50
         schema:
-          $ref: "#/components/schemas/TemplateSchema"
+          $ref: '#/components/schemas/TemplateSchema'
         ai_prompt_template:
-          type: [string, "null"]
+          type: [string, 'null']
           description: Template for AI analysis. Null to skip AI.
         creates_followup:
           type: boolean
@@ -1565,7 +1565,7 @@ components:
           type: string
           maxLength: 50
         schema:
-          $ref: "#/components/schemas/TemplateSchema"
+          $ref: '#/components/schemas/TemplateSchema'
         ai_prompt_template:
           type: string
         creates_followup:
@@ -1580,7 +1580,7 @@ components:
         prompts:
           type: array
           items:
-            $ref: "#/components/schemas/TemplatePrompt"
+            $ref: '#/components/schemas/TemplatePrompt'
         ai_prompt:
           type: string
 
@@ -1591,7 +1591,7 @@ components:
         id:
           type: string
         type:
-          $ref: "#/components/schemas/PromptType"
+          $ref: '#/components/schemas/PromptType'
         label:
           type: string
         min:
@@ -1617,7 +1617,7 @@ components:
           type: string
           format: uuid
         period_type:
-          $ref: "#/components/schemas/RetroPeriodType"
+          $ref: '#/components/schemas/RetroPeriodType'
         period_start:
           type: string
           format: date
@@ -1625,16 +1625,16 @@ components:
           type: string
           format: date
         status:
-          $ref: "#/components/schemas/RetroStatus"
+          $ref: '#/components/schemas/RetroStatus'
         xp_earned:
-          type: [integer, "null"]
+          type: [integer, 'null']
         created_at:
           type: string
           format: date-time
 
     Retrospective:
       allOf:
-        - $ref: "#/components/schemas/RetrospectiveSummary"
+        - $ref: '#/components/schemas/RetrospectiveSummary'
         - type: object
           properties:
             generated_report:
@@ -1648,9 +1648,9 @@ components:
             chat_history:
               type: array
               items:
-                $ref: "#/components/schemas/ChatMessage"
+                $ref: '#/components/schemas/ChatMessage'
             user_notes:
-              type: [string, "null"]
+              type: [string, 'null']
 
     ChatMessage:
       type: object
@@ -1674,7 +1674,7 @@ components:
         items:
           type: array
           items:
-            $ref: "#/components/schemas/ScheduleItem"
+            $ref: '#/components/schemas/ScheduleItem'
 
     ScheduleItem:
       type: object
@@ -1689,7 +1689,7 @@ components:
         title:
           type: string
         scheduled_at:
-          type: [string, "null"]
+          type: [string, 'null']
           format: date-time
         base_xp:
           type: integer
@@ -1704,7 +1704,7 @@ components:
       type: object
       properties:
         tier:
-          $ref: "#/components/schemas/SubscriptionTier"
+          $ref: '#/components/schemas/SubscriptionTier'
         current_streak:
           type: integer
         longest_streak:
@@ -1737,7 +1737,7 @@ components:
                 type: number
                 format: float
         session_adherence:
-          type: [number, "null"]
+          type: [number, 'null']
           format: float
           description: Premium. Ratio of completed to scheduled sessions.
 
@@ -1754,35 +1754,35 @@ components:
               type: number
               format: float
             next_tier_at:
-              type: [integer, "null"]
+              type: [integer, 'null']
               description: Streak days needed for the next multiplier tier.
         active_quests:
           type: array
           items:
-            $ref: "#/components/schemas/Goal"
+            $ref: '#/components/schemas/Goal'
         scheduled_sessions:
           type: array
           items:
-            $ref: "#/components/schemas/SessionInstance"
+            $ref: '#/components/schemas/SessionInstance'
         daily_routines:
           type: array
           items:
-            $ref: "#/components/schemas/Routine"
+            $ref: '#/components/schemas/Routine'
         due_routines:
           type: array
           description: Weekly/monthly routines scheduled for today.
           items:
-            $ref: "#/components/schemas/Routine"
+            $ref: '#/components/schemas/Routine'
         followup_reminders:
           type: array
           items:
-            $ref: "#/components/schemas/FieldLog"
+            $ref: '#/components/schemas/FieldLog'
         retrospective_prompt:
-          type: [object, "null"]
+          type: [object, 'null']
           description: Present (premium) when a retrospective is due.
           properties:
             retrospective_id:
               type: string
               format: uuid
             period_type:
-              $ref: "#/components/schemas/RetroPeriodType"
+              $ref: '#/components/schemas/RetroPeriodType'

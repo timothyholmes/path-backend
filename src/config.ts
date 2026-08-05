@@ -10,6 +10,11 @@ export interface Config {
   server: {
     port: number;
   };
+  database?: {
+    url?: string;
+    poolMax?: number;
+    statementTimeoutMs?: number;
+  };
   [key: string]: unknown;
 }
 

@@ -1,2 +1,9 @@
 server:
   port: 3000
+
+database:
+  # Local Supabase stack (`npm run db:start`). Overridden by DATABASE_URL, and
+  # by config/{NODE_ENV}.yml. Store production credentials as an ENC(...) value.
+  url: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+  poolMax: 10
+  statementTimeoutMs: 30000

@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  checks:
+    name: Lint and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run lint
+      - run: pnpm run format:check
+      - run: pnpm run typecheck
+
+  database:
+    name: Migrations and seeding (bare PostgreSQL)
+    runs-on: ubuntu-latest
+    # The compat shim lets the real migrations run on a stock PostgreSQL image,
+    # so this job needs no Supabase stack and no Docker-in-Docker. Same major
+    # version as Supabase's own image.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+      PATH_DB_MODE: bare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations
+        run: pnpm run db:migrate
+
+      - name: Re-apply migrations (must be a no-op)
+        run: pnpm run db:migrate
+
+      - name: Run tests
+        run: pnpm test
+
+  supabase:
+    name: RLS and database functions (pgTAP)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Applies every migration and supabase/seed.sql from scratch. A migration
+      # that works on bare PostgreSQL but not on Supabase fails here.
+      - name: Start Supabase
+        run: pnpm exec supabase start
+
+      - name: Run pgTAP suite
+        run: pnpm run db:test
+
+      - name: Check generated types are current
+        run: |
+          pnpm run db:types
+          git diff --exit-code db/types.generated.ts \
+            || (echo "db/types.generated.ts is stale. Run 'npm run db:types' and commit the result." && exit 1)
+
+      - name: Stop Supabase
+        if: always()
+        run: pnpm exec supabase stop --no-backup
