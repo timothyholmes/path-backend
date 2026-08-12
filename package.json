@@ -1,6 +1,7 @@
 {
   "name": "path-backend",
   "version": "1.0.0",
+  "packageManager": "pnpm@11.17.0",
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon --exec ts-node src/index.ts",
