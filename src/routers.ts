@@ -1,7 +1,7 @@
 import express, { Router } from 'express';
 import { Config, Dependencies } from './config';
-import { Reservation } from './api/ReservationRouter';
-import { AvailabilityRouter } from './api/AvailabilityRouter';
+import { Reservation } from './api/reservation/ReservationRouter';
+import { AvailabilityRouter } from './api/availability/AvailabilityRouter';
 
 export function getRouters(config: Config, dependencies: Dependencies) {
   const router: Router = express.Router();

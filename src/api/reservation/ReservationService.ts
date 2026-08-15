@@ -1,4 +1,4 @@
-import { Config, Dependencies } from '../config';
+import { Config, Dependencies } from '../../config';
 import { v4 } from 'uuid';
 import Storage from './ReservationStorage';
 import {
@@ -7,9 +7,9 @@ import {
   ReservationQuery,
   Pagination,
   SearchResponse,
-} from '../types';
-import { NotFound } from '../errors/notFound';
-import { ServerError } from '../errors/serverError';
+} from '../../types';
+import { NotFound } from '../../errors/notFound';
+import { ServerError } from '../../errors/serverError';
 
 class Service {
   config: Config;

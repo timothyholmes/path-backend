@@ -1,6 +1,6 @@
-import Service from './api/ReservationService';
-import Storage from './api/ReservationStorage';
-import AvailabilityService from './api/AvailabilityService';
+import Service from './api/reservation/ReservationService';
+import Storage from './api/reservation/ReservationStorage';
+import AvailabilityService from './api/availability/AvailabilityService';
 import { Config, Dependencies } from './config';
 
 export function getDependencies(config: Config, overrides?: Partial<Dependencies>): Dependencies {

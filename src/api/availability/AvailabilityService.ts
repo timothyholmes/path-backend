@@ -1,6 +1,6 @@
-import { Config, Dependencies } from '../config';
-import Storage from './ReservationStorage';
-import { Availability, Pagination, SearchResponse, AvailabilityQuery } from '../types';
+import { Config, Dependencies } from '../../config';
+import Storage from '../reservation/ReservationStorage';
+import { Availability, Pagination, SearchResponse, AvailabilityQuery } from '../../types';
 
 export default class Service {
   config: Config;

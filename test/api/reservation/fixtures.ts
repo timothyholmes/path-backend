@@ -1,4 +1,4 @@
-import { ReservationInput } from '../src/types';
+import { ReservationInput } from '../../../src/types';
 
 const T = 1700000000;
 const HOUR = 3600;

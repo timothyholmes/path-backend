@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { createTestApp } from '../helpers';
-import { seed } from '../fixtures';
+import { createTestApp } from '../../helpers';
+import { seed } from '../reservation/fixtures';
 
 // Matches the base time and hour increment used in fixtures
 const T = 1700000000;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { createTestApp } from '../helpers';
-import { dataset, seed } from '../fixtures';
-import type { Reservation } from '../../src/types';
+import { createTestApp } from '../../helpers';
+import { dataset, seed } from './fixtures';
+import type { Reservation } from '../../../src/types';
 
 // ─── CRUD ────────────────────────────────────────────────────────────────────
 

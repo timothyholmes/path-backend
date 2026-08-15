@@ -20,7 +20,7 @@ npm run typecheck      # tsc --noEmit over src, test, and db
 Run a single test file:
 
 ```bash
-npx vitest --pool=forks run test/routes/reservations.test.ts
+npx vitest --pool=forks run test/api/reservation/reservations.test.ts
 ```
 
 ### Database
@@ -57,17 +57,36 @@ Express 5 + TypeScript backend for a room reservations API. The OpenAPI spec (`a
 
 **Config loading** (`src/config.ts`) — `ConfigLoader` reads `config/default.yml`, deep-merges it with `config/{NODE_ENV}.yml` (defaults to `development`), then walks the merged object decrypting any string values of the form `ENC(iv:authTag:ciphertext)` using AES-256-GCM with a key from `CONFIG_ENCRYPTION_KEY` (64-char hex env var). Encrypt new secrets with `scripts/encrypt-secret.ts` and paste the resulting `ENC(...)` value into the relevant `config/*.yml` — never commit plaintext secrets. `config/secrets.yml` is gitignored for local-only overrides.
 
-**Resource pattern (Router → Service → Storage)** — The Reservation/Availability code is a worked example of the layering every resource follows; new resources should be added the same way, not as one-off code:
+**Resource pattern (Router → Service → Storage)** — The Reservation/Availability code is a worked example of the layering every resource follows; new resources should be added the same way, not as one-off code.
 
-- **Router** (e.g. `src/api/ReservationRouter.ts`) — a class taking `(config, dependencies)` in its constructor, with one method per HTTP verb, bound into `express.Router` inside `src/routers.ts` (e.g. `reservation.create.bind(reservation)`). Handles only things the OpenAPI schema can't express (e.g. `endTime > startTime`) by throwing a `ServerError` subclass, then delegates to a service and maps the result to a status code.
-- **Service** (e.g. `src/api/ReservationService.ts`) — business logic: id generation (`uuid`), CRUD, and cursor-paginated search. Throws `NotFound`/`Conflict`/`ServerError` for domain failures; a service only depends on the storage/services it's given via `Pick<Dependencies, ...>`, not the full `Dependencies` object.
-- **Storage** (e.g. `src/api/ReservationStorage.ts`) — a thin wrapper around an in-memory `Map`, implementing `Symbol.iterator` so other services can scan the underlying data without reaching into internals (this is how `AvailabilityService` derives room availability from `ReservationStorage` without its own storage).
+Each resource lives in its own vertical module folder under `src/api/<resource>/`, with all three layers co-located:
+
+```
+src/api/reservation/
+  ReservationRouter.ts
+  ReservationService.ts
+  ReservationStorage.ts
+```
+
+Tests mirror the same structure under `test/api/<resource>/`, with any resource-specific fixtures kept alongside the tests:
+
+```
+test/api/reservation/
+  reservations.test.ts
+  fixtures.ts
+```
+
+The three layers:
+
+- **Router** (e.g. `src/api/reservation/ReservationRouter.ts`) — a class taking `(config, dependencies)` in its constructor, with one method per HTTP verb, bound into `express.Router` inside `src/routers.ts` (e.g. `reservation.create.bind(reservation)`). Handles only things the OpenAPI schema can't express (e.g. `endTime > startTime`) by throwing a `ServerError` subclass, then delegates to a service and maps the result to a status code.
+- **Service** (e.g. `src/api/reservation/ReservationService.ts`) — business logic: id generation (`uuid`), CRUD, and cursor-paginated search. Throws `NotFound`/`Conflict`/`ServerError` for domain failures; a service only depends on the storage/services it's given via `Pick<Dependencies, ...>`, not the full `Dependencies` object.
+- **Storage** (e.g. `src/api/reservation/ReservationStorage.ts`) — a thin wrapper around an in-memory `Map`, implementing `Symbol.iterator` so other services can scan the underlying data without reaching into internals (this is how `AvailabilityService` derives room availability from `ReservationStorage` without its own storage).
 
 **Dependency graph** (`src/dependencies.ts`): `getDependencies` builds `ReservationStorage`, then `ReservationService` and `AvailabilityService` on top of it (both share the one storage instance), threading `overrides` through at each step for test injection.
 
 **Error handling** (`src/errors/`): `ServerError` is the base class (`message`, HTTP `code`, `type` string, optional wrapped `originalError`); `NotFound`, `BadRequest`, and `Conflict` are prebuilt subclasses pinned to their status/reason phrase (`http-status-codes`) — reach for these (or add a new subclass the same way) rather than throwing raw errors. The global handler registered in `Server.withRouters` catches `ServerError` instances and formats `{ error, message }` JSON; `express-openapi-validator` schema-violation errors (shaped `{ status, message }`) flow through the same handler.
 
-**Tests** use `supertest` against a real `Server` instance — no mocks. `test/fixtures.ts` provides a shared six-reservation dataset plus a `seed()` helper.
+**Tests** use `supertest` against a real `Server` instance — no mocks. `test/helpers.ts:createTestApp()` is the shared test factory. Resource-specific fixtures (e.g. `test/api/reservation/fixtures.ts`) live inside each module's test folder.
 
 **Storage (Express sample only)**
 The Reservation/Availability code is leftover scaffolding and stores everything in a `Map` by design — do not add persistence to _it_, and it is fine for it to lose data between restarts. This says nothing about the Path AI database below, which is a real PostgreSQL schema.

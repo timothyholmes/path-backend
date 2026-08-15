@@ -2,9 +2,9 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import * as yaml from 'js-yaml';
-import ReservationService from './api/ReservationService';
-import ReservationStorage from './api/ReservationStorage';
-import AvailabilityService from './api/AvailabilityService';
+import ReservationService from './api/reservation/ReservationService';
+import ReservationStorage from './api/reservation/ReservationStorage';
+import AvailabilityService from './api/availability/AvailabilityService';
 
 export interface Config {
   server: {

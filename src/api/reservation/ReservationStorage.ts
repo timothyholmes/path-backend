@@ -1,6 +1,6 @@
-import { Config, Dependencies } from '../config';
-import { ReservationInput } from '../types';
-import { ServerError } from '../errors/serverError';
+import { Config, Dependencies } from '../../config';
+import { ReservationInput } from '../../types';
+import { ServerError } from '../../errors/serverError';
 
 class Storage {
   config: Config;

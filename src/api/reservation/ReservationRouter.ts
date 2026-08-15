@@ -1,8 +1,8 @@
 import { StatusCodes } from 'http-status-codes';
-import { Config, Dependencies } from '../config';
+import { Config, Dependencies } from '../../config';
 import { Request, Response } from 'express';
-import { ReservationQuery, Pagination } from '../types';
-import { BadRequest } from '../errors/badRequest';
+import { ReservationQuery, Pagination } from '../../types';
+import { BadRequest } from '../../errors/badRequest';
 
 export class Reservation {
   config: Config;
