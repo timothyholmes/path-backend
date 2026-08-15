@@ -1,6 +1,7 @@
 import Service from './api/reservation/ReservationService';
 import Storage from './api/reservation/ReservationStorage';
 import AvailabilityService from './api/availability/AvailabilityService';
+import AuthService from './auth/AuthService';
 import { Config, Dependencies } from './config';
 
 export function getDependencies(config: Config, overrides?: Partial<Dependencies>): Dependencies {
@@ -11,11 +12,13 @@ export function getDependencies(config: Config, overrides?: Partial<Dependencies
   const availabilityService =
     overrides?.availabilityService ??
     new AvailabilityService(config, { reservationStorage, logger });
+  const authService = overrides?.authService ?? new AuthService(config, { logger });
 
   return {
     reservationService,
     reservationStorage,
     availabilityService,
+    authService,
     logger,
   };
 }

@@ -9,6 +9,7 @@ npm run dev            # Start with hot reload (ts-node + nodemon)
 npm run build          # Compile TypeScript to dist/
 npm start               # Run compiled output
 npm test                # Run all tests (vitest, fork pool)
+npm run test:coverage  # Run all tests with a v8 coverage report
 npm run test:watch     # Watch mode
 npm run lint            # Lint (eslint .)
 npm run lint:fix       # Lint and auto-fix
@@ -22,6 +23,25 @@ Run a single test file:
 ```bash
 npx vitest --pool=forks run test/api/reservation/reservations.test.ts
 ```
+
+### Testing & coverage
+
+These rules are non-negotiable — CI and reviewers enforce them:
+
+- **Run the full suite during development.** Run `npm test` (all tests, not just
+  the file you touched) before considering any change done; a single-file run is
+  only for tight inner-loop iteration, never the final check.
+- **Every new or changed behaviour ships with tests.** New code — a function,
+  branch, endpoint, error path — is not complete until tests exercise it. Do not
+  open a change that adds untested code.
+- **Coverage may not decrease.** `npm run test:coverage` must report a total at
+  or above the current baseline; a change that lowers it is incomplete. Raising
+  it is always welcome.
+- **Never exclude code to protect the number.** The measured surface is all
+  application source (`src/**`), and the coverage config's `exclude` list must
+  stay empty. Do not carve out files, add ignore hints, or narrow `include` to
+  make coverage look better — cover the code instead. (Generated artifacts are
+  not hand-written source and are simply outside `include`.)
 
 ### Database
 

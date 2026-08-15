@@ -5,10 +5,17 @@ import * as yaml from 'js-yaml';
 import ReservationService from './api/reservation/ReservationService';
 import ReservationStorage from './api/reservation/ReservationStorage';
 import AvailabilityService from './api/availability/AvailabilityService';
+import AuthService from './auth/AuthService';
 
 export interface Config {
   server: {
     port: number;
+  };
+  auth: {
+    /** Supabase project JWT secret used to verify user tokens (HS256). */
+    jwtSecret: string;
+    /** Expected `aud` claim; Supabase issues user tokens as `authenticated`. */
+    audience?: string;
   };
   database?: {
     url?: string;
@@ -22,6 +29,7 @@ export interface Dependencies {
   reservationService: ReservationService;
   reservationStorage: ReservationStorage;
   availabilityService: AvailabilityService;
+  authService: AuthService;
   logger: Console;
 }
 

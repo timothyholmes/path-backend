@@ -1,6 +1,15 @@
 server:
   port: 3000
 
+auth:
+  # Supabase signs each user's JWT with the project's JWT secret (HS256); the
+  # auth middleware verifies tokens against it. This is the well-known secret
+  # baked into the local Supabase stack (`npm run db:start`) — production MUST
+  # override it with an ENC(...) value in config/production.yml.
+  jwtSecret: super-secret-jwt-token-with-at-least-32-characters-long
+  # Supabase issues signed-in user tokens with aud "authenticated".
+  audience: authenticated
+
 database:
   # Local Supabase stack (`npm run db:start`). Overridden by DATABASE_URL, and
   # by config/{NODE_ENV}.yml. Store production credentials as an ENC(...) value.

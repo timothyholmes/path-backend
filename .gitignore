@@ -1,6 +1,8 @@
 node_modules/
 dist/
+coverage/
 .claude/
 .vscode/
 .env
 config/secrets.yml
+.DS_Store

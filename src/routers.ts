@@ -2,6 +2,7 @@ import express, { Router } from 'express';
 import { Config, Dependencies } from './config';
 import { Reservation } from './api/reservation/ReservationRouter';
 import { AvailabilityRouter } from './api/availability/AvailabilityRouter';
+import { requireAuth } from './auth/authMiddleware';
 
 export function getRouters(config: Config, dependencies: Dependencies) {
   const router: Router = express.Router();
@@ -10,17 +11,21 @@ export function getRouters(config: Config, dependencies: Dependencies) {
 
   const availability = new AvailabilityRouter(config, dependencies);
 
+  // Gate every data route behind a valid Supabase Auth JWT. `/health` (and the
+  // Swagger UI mounted in `Server`) stay public.
+  const auth = requireAuth(dependencies);
+
   router.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok' });
   });
 
-  router.post(`/reservation`, reservation.create.bind(reservation));
-  router.get(`/reservation`, reservation.search.bind(reservation));
-  router.get(`/reservation/:reservationId`, reservation.getById.bind(reservation));
-  router.patch(`/reservation/:reservationId`, reservation.update.bind(reservation));
-  router.delete(`/reservation/:reservationId`, reservation.delete.bind(reservation));
+  router.post(`/reservation`, auth, reservation.create.bind(reservation));
+  router.get(`/reservation`, auth, reservation.search.bind(reservation));
+  router.get(`/reservation/:reservationId`, auth, reservation.getById.bind(reservation));
+  router.patch(`/reservation/:reservationId`, auth, reservation.update.bind(reservation));
+  router.delete(`/reservation/:reservationId`, auth, reservation.delete.bind(reservation));
 
-  router.get(`/availability`, availability.search.bind(availability));
+  router.get(`/availability`, auth, availability.search.bind(availability));
 
   return [router];
 }
