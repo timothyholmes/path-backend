@@ -87,7 +87,10 @@ export interface LedgerSpec {
  * calculate_and_award_xp(), which always stamps now() and so cannot backdate.
  */
 export class Seeder {
-  constructor(private readonly client: Client) {}
+  constructor(
+    private readonly client: Client,
+    private readonly asOf: Date,
+  ) {}
 
   /** Partitions must exist before backdated ledger rows are inserted. */
   async ensureLedgerPartitions(monthsBack: number, monthsAhead = 3): Promise<void> {
@@ -543,7 +546,7 @@ export class Seeder {
       [userId],
     );
 
-    await this.client.query('select public.recalculate_streak($1)', [userId]);
+    await this.client.query('select public.recalculate_streak($1, $2)', [userId, this.asOf]);
   }
 
   private async tagVirtues(
