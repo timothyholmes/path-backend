@@ -23,6 +23,7 @@ function urlForDatabase(name: string): string {
 
 export interface TempDatabase {
   name: string;
+  url: string;
   client: Client;
   drop(): Promise<void>;
 }
@@ -47,7 +48,8 @@ export async function createTempDatabase(label: string): Promise<TempDatabase> {
     await admin.end();
   }
 
-  const client = new Client({ connectionString: urlForDatabase(name) });
+  const url = urlForDatabase(name);
+  const client = new Client({ connectionString: url });
   await client.connect();
 
   // auth.users column detection is memoised per process; a fresh database
@@ -56,6 +58,7 @@ export async function createTempDatabase(label: string): Promise<TempDatabase> {
 
   return {
     name,
+    url,
     client,
     async drop() {
       await client.end();
