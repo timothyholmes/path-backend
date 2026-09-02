@@ -2,9 +2,12 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import * as yaml from 'js-yaml';
+import { Pool } from 'pg';
 import ReservationService from './api/reservation/ReservationService';
 import ReservationStorage from './api/reservation/ReservationStorage';
 import AvailabilityService from './api/availability/AvailabilityService';
+import RoutineService from './api/routine/RoutineService';
+import RoutineStorage from './api/routine/RoutineStorage';
 import AuthService from './auth/AuthService';
 
 export interface Config {
@@ -29,7 +32,11 @@ export interface Dependencies {
   reservationService: ReservationService;
   reservationStorage: ReservationStorage;
   availabilityService: AvailabilityService;
+  routineService: RoutineService;
+  routineStorage: RoutineStorage;
   authService: AuthService;
+  /** Shared Postgres pool for Postgres-backed storage (see `src/api/shared/db.ts`). */
+  pool: Pool;
   logger: Console;
 }
 

@@ -5,6 +5,7 @@ import { BadRequest } from '../../src/errors/badRequest';
 import { Conflict } from '../../src/errors/conflict';
 import { NotFound } from '../../src/errors/notFound';
 import { Unauthorized } from '../../src/errors/unauthorized';
+import { PaymentRequired } from '../../src/errors/paymentRequired';
 
 describe('error classes', () => {
   it('ServerError defaults to 500 and wraps an original error', () => {
@@ -21,6 +22,7 @@ describe('error classes', () => {
     [Unauthorized, StatusCodes.UNAUTHORIZED, ReasonPhrases.UNAUTHORIZED],
     [NotFound, StatusCodes.NOT_FOUND, ReasonPhrases.NOT_FOUND],
     [Conflict, StatusCodes.CONFLICT, ReasonPhrases.CONFLICT],
+    [PaymentRequired, StatusCodes.PAYMENT_REQUIRED, ReasonPhrases.PAYMENT_REQUIRED],
   ])('%s pins its status code and reason phrase', (Ctor, code, type) => {
     const err = new (Ctor as new (m: string) => ServerError)('nope');
     expect(err).toBeInstanceOf(ServerError);

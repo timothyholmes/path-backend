@@ -8,9 +8,11 @@ leveling engine.
 `supabase/` and is where the load-bearing logic runs — XP scoring, streak math, and multipliers are
 PostgreSQL functions, and Row Level Security is the actual boundary between users.
 
-> The `src/` Express app is a room-reservations sample left over from the project scaffold. It runs, and
-> its tests pass, but it is not Path AI. New work belongs in the database layer and (later) Supabase Edge
-> Functions.
+> The `src/api/reservation` and `src/api/availability` modules are a room-reservations sample left over
+> from the project scaffold — a worked example of the Router → Service → Storage layering, not Path AI.
+> `src/api/routine` is the first real Path AI resource: it implements the `/routines` endpoints from
+> `api-spec.yml` against the real Postgres schema in `supabase/`, following the same layering. Further
+> Path AI resources belong here too, unless/until they move to Supabase Edge Functions.
 
 ---
 
@@ -149,8 +151,9 @@ npm test                # Everything
 npm run test:watch      # Watch mode
 ```
 
-Tests under `test/db/` need a PostgreSQL server and **skip themselves when `DATABASE_URL` is unset**, so
-`npm test` works on a fresh checkout with nothing running. To include them, point at a database:
+Tests under `test/db/` and `test/api/routine/` need a PostgreSQL server and **skip themselves when
+`DATABASE_URL` is unset**, so `npm test` works on a fresh checkout with nothing running. To include them,
+point at a database:
 
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:54322/postgres npm test
@@ -215,7 +218,7 @@ npm run typecheck       # tsc --noEmit over src, test, and db
 ```
 api-spec.yml              OpenAPI contract for the HTTP surface
 config/                   Layered YAML config with encrypted secrets
-src/                      Express reservations sample (legacy scaffold)
+src/                      Express app; api/reservation & api/availability are scaffold, api/routine is real
 supabase/
   migrations/             Schema, functions, RLS, plan limits, cron — source of truth
   seed.sql                Baseline dev account, applied by `db:reset`

@@ -10,7 +10,7 @@ const API_SPEC = path.resolve(__dirname, '../api-spec.yml');
 
 const HTTP_VERBS = ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'] as const;
 
-type TestAgent = ReturnType<typeof request>;
+export type TestAgent = ReturnType<typeof request>;
 
 interface TestAppOptions {
   /** Attach a valid bearer token to every request. Defaults to true. */
@@ -54,7 +54,7 @@ export function authHeader(token: string = signTestToken()): { Authorization: st
 
 // Wrap a supertest agent so every request carries a bearer token, keeping the
 // resource tests focused on behaviour rather than repeating the auth header.
-function withAuth(agent: TestAgent, token: string): TestAgent {
+export function withAuth(agent: TestAgent, token: string): TestAgent {
   return new Proxy(agent, {
     get(target, prop, receiver) {
       const value = Reflect.get(target, prop, receiver);
