@@ -175,6 +175,93 @@ paths:
                   $ref: '#/components/schemas/Virtue'
         '401':
           $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createVirtue
+      tags: [profile]
+      summary: Create virtue
+      description: >
+        Adds a custom virtue. Sign-up seeds four starter virtues, which is also the
+        free-tier cap; creating a fifth returns `402 Payment Required` for free
+        users. Virtue names are unique per user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VirtueCreate'
+      responses:
+        '201':
+          description: The created virtue.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Virtue'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '409':
+          description: A virtue with this name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /profile/virtues/{id}:
+    patch:
+      operationId: updateVirtue
+      tags: [profile]
+      summary: Update virtue
+      description: >
+        Partial update of a virtue's presentation (`name`, `icon`, `color`,
+        `display_order`). XP and level are derived from the ledger and cannot be
+        set here.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VirtueUpdate'
+      responses:
+        '200':
+          description: The updated virtue.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Virtue'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: A virtue with this name already exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      operationId: deleteVirtue
+      tags: [profile]
+      summary: Delete virtue
+      description: >
+        Permanently deletes a virtue and untags it from routines, goals, sessions,
+        and field logs. XP already recorded against it in the ledger is retained
+        (the ledger is append-only).
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /profile/virtues/{id}/history:
     get:
@@ -544,6 +631,52 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+
+  /goals/backlog/{id}:
+    patch:
+      operationId: updateBacklogItem
+      tags: [goals]
+      summary: Update backlog item
+      description: >
+        Edits an unpromoted backlog idea's title, notes, or virtue. Once an item is
+        promoted to a goal, edit the resulting goal via `PATCH /goals/{id}` instead.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BacklogItemUpdate'
+      responses:
+        '200':
+          description: The updated backlog item.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BacklogItem'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteBacklogItem
+      tags: [goals]
+      summary: Delete backlog item
+      description: >
+        Permanently removes a backlog idea. Promoting an item does not delete it;
+        use this to dismiss ideas you will not pursue.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /goals/backlog/{id}/promote:
     post:
@@ -934,6 +1067,56 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '402':
           $ref: '#/components/responses/PaymentRequired'
+
+  /field-logs/templates/{id}:
+    patch:
+      operationId: updateFieldLogTemplate
+      tags: [field-logs]
+      summary: Update template (premium)
+      description: >
+        Partial update of a field log template. Deactivating a template
+        (`is_active: false`) keeps existing logs created from it intact.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FieldLogTemplateUpdate'
+      responses:
+        '200':
+          description: The updated template.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FieldLogTemplate'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteFieldLogTemplate
+      tags: [field-logs]
+      summary: Delete template (premium)
+      description: >
+        Permanently deletes a template. Field logs previously created from it are
+        retained and keep their stored content and analysis.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   # --------------------------------------------------------- retrospectives
   /retrospectives:
@@ -1368,6 +1551,36 @@ components:
         display_order:
           type: integer
 
+    VirtueCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 50
+        icon:
+          type: string
+        color:
+          type: string
+          pattern: '^#([0-9a-fA-F]{6})$'
+        display_order:
+          type: integer
+
+    VirtueUpdate:
+      type: object
+      description: Partial update; only supplied fields are changed.
+      properties:
+        name:
+          type: string
+          maxLength: 50
+        icon:
+          type: string
+        color:
+          type: string
+          pattern: '^#([0-9a-fA-F]{6})$'
+        display_order:
+          type: integer
+
     VirtueHistory:
       type: object
       properties:
@@ -1650,6 +1863,19 @@ components:
           type: string
           format: uuid
 
+    BacklogItemUpdate:
+      type: object
+      description: Partial update; only supplied fields are changed.
+      properties:
+        title:
+          type: string
+          maxLength: 300
+        notes:
+          type: [string, 'null']
+        virtue_id:
+          type: [string, 'null']
+          format: uuid
+
     # ---------------------------------------------------------- sessions
     Session:
       type: object
@@ -1896,6 +2122,25 @@ components:
         creates_followup:
           type: boolean
           default: false
+
+    FieldLogTemplateUpdate:
+      type: object
+      description: Partial update; only supplied fields are changed.
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        prefix:
+          type: [string, 'null']
+          maxLength: 50
+        schema:
+          $ref: '#/components/schemas/TemplateSchema'
+        ai_prompt_template:
+          type: [string, 'null']
+        creates_followup:
+          type: boolean
+        is_active:
+          type: boolean
 
     TemplateSchema:
       type: object
