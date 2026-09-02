@@ -1163,6 +1163,53 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteRetrospective
+      tags: [retrospectives]
+      summary: Delete retrospective
+      description: >
+        Permanently removes a retrospective and its chat history. Retrospectives are
+        system-generated; to dismiss one without removing it from history, use
+        `POST /retrospectives/{id}/skip` instead. Review XP already awarded is not
+        reversed (the XP ledger is append-only).
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /retrospectives/{id}/skip:
+    post:
+      operationId: skipRetrospective
+      tags: [retrospectives]
+      summary: Skip retrospective (no XP)
+      description: >
+        Marks a generated retrospective as `skipped`, dismissing its Today-view
+        prompt without awarding review XP. Skipping an already-reviewed
+        retrospective returns `409 Conflict`.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: The skipped retrospective summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetrospectiveSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Retrospective already reviewed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /retrospectives/{id}/review:
     post:
