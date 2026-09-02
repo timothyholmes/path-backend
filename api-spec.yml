@@ -98,6 +98,66 @@ paths:
                 $ref: '#/components/schemas/Profile'
         '401':
           $ref: '#/components/responses/Unauthorized'
+    post:
+      operationId: createProfile
+      tags: [profile]
+      summary: Initialize profile after sign-up (onboarding)
+      description: >
+        Completes onboarding for a freshly signed-up user. Credential sign-up
+        itself is handled by Supabase Auth (`/auth/v1/signup`), which fires a
+        database trigger that materializes the profile row and the starter set of
+        virtues. This endpoint sets the client-writable fields (`display_name`,
+        `timezone`) on that row and is safe to call once per new account. It is
+        idempotent: if onboarding has already been completed the current profile is
+        returned unchanged with `200`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileCreate'
+      responses:
+        '200':
+          description: Profile already initialized; returned unchanged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '201':
+          description: Profile initialized.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      operationId: updateProfile
+      tags: [profile]
+      summary: Update editable profile fields
+      description: >
+        Updates the only user-writable profile columns, `display_name` and
+        `timezone`. Scoring and subscription fields are managed server-side and
+        cannot be set here. An invalid IANA timezone is rejected with `400`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileUpdate'
+      responses:
+        '200':
+          description: The updated profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /profile/virtues:
     get:
@@ -227,6 +287,55 @@ paths:
         '402':
           $ref: '#/components/responses/PaymentRequired'
 
+  /routines/{id}:
+    patch:
+      operationId: updateRoutine
+      tags: [routines]
+      summary: Update routine
+      description: >
+        Partial update of a routine definition. Reactivating a routine
+        (`is_active: true`) when the free-tier cap of 10 active routines is already
+        reached returns `402 Payment Required`. Supplying `virtue_ids` replaces the
+        routine's tagged virtues.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoutineUpdate'
+      responses:
+        '200':
+          description: The updated routine.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Routine'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteRoutine
+      tags: [routines]
+      summary: Delete routine
+      description: >
+        Permanently deletes a routine and its virtue tags and completion history.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /routines/{id}/complete:
     post:
       operationId: completeRoutine
@@ -348,6 +457,23 @@ paths:
                 $ref: '#/components/schemas/Goal'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteGoal
+      tags: [goals]
+      summary: Delete goal
+      description: >
+        Permanently deletes a goal and its virtue tags. Subtasks referencing this
+        goal as `parent_goal_id` are removed with it. To keep a goal for the record
+        without deleting it, set its `status` to `archived` via `PATCH` instead.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
         '401':
           $ref: '#/components/responses/Unauthorized'
         '404':
@@ -509,6 +635,56 @@ paths:
         '402':
           $ref: '#/components/responses/PaymentRequired'
 
+  /sessions/{id}:
+    patch:
+      operationId: updateSession
+      tags: [sessions]
+      summary: Update session
+      description: >
+        Partial update of a session definition. Setting a custom
+        `target_duration_minutes` (anything other than 30/60/90) is a premium
+        feature and returns `402 Payment Required` for free users. Supplying
+        `virtue_ids` replaces the session's tagged virtues.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SessionUpdate'
+      responses:
+        '200':
+          description: The updated session definition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteSession
+      tags: [sessions]
+      summary: Delete session
+      description: >
+        Permanently deletes a session definition, its virtue tags, and its
+        instances. In-progress instances are ended without scoring.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /sessions/{id}/start:
     post:
       operationId: startSession
@@ -669,6 +845,53 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '402':
           $ref: '#/components/responses/PaymentRequired'
+
+  /field-logs/{id}:
+    patch:
+      operationId: updateFieldLog
+      tags: [field-logs]
+      summary: Update field log
+      description: >
+        Edits a field log's content, prefix, follow-up reminder, or virtue tags.
+        Editing does not re-run AI analysis; the stored `ai_analysis` is left
+        unchanged. Supplying `virtue_ids` replaces the log's tagged virtues.
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FieldLogUpdate'
+      responses:
+        '200':
+          description: The updated field log.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FieldLog'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      operationId: deleteFieldLog
+      tags: [field-logs]
+      summary: Delete field log
+      description: >
+        Permanently deletes a field log and its virtue tags. XP already awarded for
+        the log is not reversed (the XP ledger is append-only).
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '204':
+          $ref: '#/components/responses/NoContent'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /field-logs/templates:
     get:
@@ -942,6 +1165,8 @@ components:
         default: 25
 
   responses:
+    NoContent:
+      description: The resource was deleted. No response body.
     BadRequest:
       description: The request body or parameters were invalid.
       content:
@@ -1092,6 +1317,33 @@ components:
           type: [string, 'null']
           format: date-time
 
+    ProfileCreate:
+      type: object
+      description: >
+        Onboarding payload applied to the auto-created profile row. Both fields are
+        optional; omitted values keep the defaults set at sign-up (display name
+        derived from email, timezone `UTC`).
+      properties:
+        display_name:
+          type: string
+          maxLength: 100
+        timezone:
+          type: string
+          description: IANA timezone. Rejected with 400 if not a valid zone name.
+
+    ProfileUpdate:
+      type: object
+      description: >
+        Partial update; only supplied fields are changed. These are the only
+        user-writable profile columns.
+      properties:
+        display_name:
+          type: [string, 'null']
+          maxLength: 100
+        timezone:
+          type: string
+          description: IANA timezone. Rejected with 400 if not a valid zone name.
+
     Virtue:
       type: object
       properties:
@@ -1225,6 +1477,32 @@ components:
         virtue_ids:
           type: array
           minItems: 1
+          items:
+            type: string
+            format: uuid
+
+    RoutineUpdate:
+      type: object
+      description: Partial update; only supplied fields are changed.
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        description:
+          type: [string, 'null']
+        frequency:
+          $ref: '#/components/schemas/RoutineFrequency'
+        scheduled_day:
+          type: [integer, 'null']
+          description: Required when changing frequency to weekly/monthly.
+        base_xp:
+          type: integer
+        is_active:
+          type: boolean
+        virtue_ids:
+          type: array
+          minItems: 1
+          description: Replaces the routine's tagged virtues when supplied.
           items:
             type: string
             format: uuid
@@ -1426,6 +1704,31 @@ components:
             type: string
             format: uuid
 
+    SessionUpdate:
+      type: object
+      description: Partial update; only supplied fields are changed.
+      properties:
+        title:
+          type: string
+          maxLength: 200
+        target_duration_minutes:
+          type: integer
+          description: Custom values (not 30/60/90) are premium.
+        recurrence_rule:
+          type: [object, 'null']
+          additionalProperties: true
+        base_xp:
+          type: integer
+        is_active:
+          type: boolean
+        virtue_ids:
+          type: array
+          minItems: 1
+          description: Replaces the session's tagged virtues when supplied.
+          items:
+            type: string
+            format: uuid
+
     SessionInstance:
       type: object
       properties:
@@ -1525,6 +1828,28 @@ components:
           format: date-time
         virtue_ids:
           type: array
+          items:
+            type: string
+            format: uuid
+
+    FieldLogUpdate:
+      type: object
+      description: >
+        Partial update; only supplied fields are changed. Editing does not re-run
+        AI analysis.
+      properties:
+        content:
+          type: object
+          additionalProperties: true
+        prefix:
+          type: [string, 'null']
+          maxLength: 50
+        followup_reminder_at:
+          type: [string, 'null']
+          format: date-time
+        virtue_ids:
+          type: array
+          description: Replaces the log's tagged virtues when supplied.
           items:
             type: string
             format: uuid
