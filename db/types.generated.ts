@@ -875,7 +875,10 @@ export type Database = {
       }
       default_session_xp: { Args: { p_minutes: number }; Returns: number }
       level_for_xp: { Args: { p_xp: number }; Returns: number }
-      recalculate_streak: { Args: { p_user_id: string }; Returns: number }
+      recalculate_streak: {
+        Args: { p_user_id: string; p_as_of?: string }
+        Returns: number
+      }
       xp_for_level: { Args: { p_level: number }; Returns: number }
     }
     Enums: {

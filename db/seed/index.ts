@@ -67,12 +67,13 @@ export async function seed(options: SeedOptions): Promise<SeedSummary> {
     );
   }
 
-  const seeder = new Seeder(options.client);
+  const asOf = options.asOf ?? new Date();
+  const seeder = new Seeder(options.client, asOf);
   const context = {
     client: options.client,
     seeder,
     rng: new Rng(options.rngSeed ?? scenario.name),
-    asOf: options.asOf ?? new Date(),
+    asOf,
   };
 
   // One transaction for the whole scenario: a scenario that fails part way
