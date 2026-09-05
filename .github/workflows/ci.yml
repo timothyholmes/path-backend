@@ -17,9 +17,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run lint
-      - run: pnpm run format:check
-      - run: pnpm run typecheck
+      - run: ./scripts/ci-lint.sh
 
   database:
     name: Migrations and seeding (bare PostgreSQL)
@@ -50,15 +48,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-
-      - name: Apply migrations
-        run: pnpm run db:migrate
-
-      - name: Re-apply migrations (must be a no-op)
-        run: pnpm run db:migrate
-
-      - name: Run tests
-        run: pnpm test
+      - run: ./scripts/ci-database-bare.sh
 
   supabase:
     name: RLS and database functions (pgTAP)
@@ -74,18 +64,4 @@ jobs:
 
       # Applies every migration and supabase/seed.sql from scratch. A migration
       # that works on bare PostgreSQL but not on Supabase fails here.
-      - name: Start Supabase
-        run: pnpm exec supabase start
-
-      - name: Run pgTAP suite
-        run: pnpm run db:test
-
-      - name: Check generated types are current
-        run: |
-          pnpm run db:types
-          git diff --exit-code db/types.generated.ts \
-            || (echo "db/types.generated.ts is stale. Run 'npm run db:types' and commit the result." && exit 1)
-
-      - name: Stop Supabase
-        if: always()
-        run: pnpm exec supabase stop --no-backup
+      - run: ./scripts/ci-supabase-pgtap.sh

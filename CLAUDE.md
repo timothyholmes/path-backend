@@ -63,6 +63,26 @@ Against a plain PostgreSQL server (no Supabase), set `PATH_DB_MODE=bare`:
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/postgres PATH_DB_MODE=bare npm run db:migrate
 ```
 
+### Running CI locally
+
+`.github/workflows/ci.yml` has three jobs, each a thin wrapper around a bash
+script in `scripts/` — run the same script locally to reproduce a CI failure
+exactly, rather than approximating it with ad hoc `npm run` commands:
+
+```bash
+pnpm install --frozen-lockfile   # once, matching CI's install (npm's flat
+                                  # node_modules can hide missing pnpm-only deps)
+npm run ci                       # all three jobs below, in order (needs Docker)
+
+./scripts/ci-lint.sh             # lint + format:check + typecheck
+./scripts/ci-database-bare.sh    # migrations twice + tests, against postgres:17 (needs Docker)
+./scripts/ci-supabase-pgtap.sh   # full Supabase stack + pgTAP + generated-types check (needs Docker)
+```
+
+`ci-database-bare.sh` and `ci-supabase-pgtap.sh` start and tear down their own
+containers when `DATABASE_URL` isn't already set (that's how CI, which
+provisions Postgres itself, invokes them unchanged).
+
 ## Repo layout
 
 This is a pnpm workspace (`pnpm-workspace.yaml`: `.` and `apps/*`). The repo root is the Express/Supabase
