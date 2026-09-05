@@ -213,10 +213,28 @@ npm run typecheck       # tsc --noEmit over src, test, and db
 
 ---
 
+## Mobile app
+
+`apps/mobile` is the Path AI client: Expo + Expo Router (TypeScript), targeting iOS, Android, and web
+from one codebase. It talks to the local Supabase stack directly via `@supabase/supabase-js`, per the
+RLS-as-boundary design described in `CLAUDE.md`.
+
+```bash
+npm run db:start                     # from the repo root, if not already running
+supabase status                      # copy the API URL and anon key
+cd apps/mobile
+cp .env.example .env.local           # fill in EXPO_PUBLIC_SUPABASE_URL / _ANON_KEY
+pnpm start                           # then press w for web, i for iOS sim, a for Android
+```
+
+It's part of the pnpm workspace (`pnpm-workspace.yaml`), so `pnpm install` at the repo root installs
+both the backend and the mobile app's dependencies.
+
 ## Layout
 
 ```
 api-spec.yml              OpenAPI contract for the HTTP surface
+apps/mobile/              Expo Router app (iOS, Android, web) — the Path AI client
 config/                   Layered YAML config with encrypted secrets
 src/                      Express app; api/reservation & api/availability are scaffold, api/routine is real
 supabase/

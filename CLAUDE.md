@@ -63,6 +63,14 @@ Against a plain PostgreSQL server (no Supabase), set `PATH_DB_MODE=bare`:
 DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/postgres PATH_DB_MODE=bare npm run db:migrate
 ```
 
+## Repo layout
+
+This is a pnpm workspace (`pnpm-workspace.yaml`: `.` and `apps/*`). The repo root is the Express/Supabase
+backend described below. `apps/mobile` is the Path AI client — Expo + Expo Router (TypeScript), targeting
+iOS, Android, and web from one codebase, talking to Supabase directly via `@supabase/supabase-js` (see
+`apps/mobile`'s own `CLAUDE.md`/`AGENTS.md` for Expo-specific guidance, and the root README's "Mobile app"
+section for setup). `pnpm install` at the root installs both.
+
 ## Architecture
 
 Express 5 + TypeScript backend for a room reservations API. The OpenAPI spec (`api-spec.yml`) is the source of truth — `express-openapi-validator` enforces request/response validation against it at runtime, and Swagger UI is served at `/docs`. Any new endpoint or field must be added to `api-spec.yml` or requests/responses will fail validation.
