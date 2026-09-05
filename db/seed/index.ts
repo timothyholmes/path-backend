@@ -81,6 +81,16 @@ export async function seed(options: SeedOptions): Promise<SeedSummary> {
   await options.client.query('begin');
   let users;
   try {
+    // Transaction-local: private.enforce_plan_limit() reads this instead of
+    // now() when deciding if a premium subscription is still live, so a
+    // "still live while the dataset is written" fixture (edge-cases' lapsed
+    // premium user) stays live relative to asOf rather than real wall-clock
+    // time. Unset outside the seeder's own transaction, so production writes
+    // are unaffected.
+    await options.client.query('select set_config($1, $2, true)', [
+      'path.seed_as_of',
+      asOf.toISOString(),
+    ]);
     users = await scenario.run(context);
     await options.client.query('commit');
   } catch (error) {
