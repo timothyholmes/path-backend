@@ -65,6 +65,17 @@ export interface RoutineListQuery {
   frequency?: RoutineFrequency;
 }
 
+/** Partial update; a field's absence (as opposed to `null`, where the schema allows it) leaves it unchanged. */
+export interface RoutineUpdateInput {
+  title?: string;
+  description?: string | null;
+  frequency?: RoutineFrequency;
+  scheduled_day?: number | null;
+  base_xp?: number;
+  is_active?: boolean;
+  virtue_ids?: string[];
+}
+
 export interface ScoringResult {
   xp_earned: number;
   base_xp: number;

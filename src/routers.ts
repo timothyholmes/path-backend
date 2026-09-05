@@ -32,6 +32,8 @@ export function getRouters(config: Config, dependencies: Dependencies) {
 
   router.get(`/routines`, auth, routine.list.bind(routine));
   router.post(`/routines`, auth, routine.create.bind(routine));
+  router.patch(`/routines/:id`, auth, routine.update.bind(routine));
+  router.delete(`/routines/:id`, auth, routine.delete.bind(routine));
   router.post(`/routines/:id/complete`, auth, routine.complete.bind(routine));
 
   return [router];

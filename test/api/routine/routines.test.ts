@@ -346,4 +346,294 @@ describe.skipIf(!hasDatabase)('routines', () => {
       expect(res.body.xp_earned).toBe(11);
     });
   });
+
+  describe('PATCH /routines/{id}', () => {
+    it('updates only the supplied fields, leaving the rest untouched', async () => {
+      const created = await app.agent.post('/routines').send({
+        title: 'Original title',
+        description: 'Original description',
+        frequency: 'daily',
+        base_xp: 20,
+        virtue_ids: [user.virtueIds[0]],
+      });
+      expect(created.status).toBe(StatusCodes.CREATED);
+
+      const res = await app.agent.patch(`/routines/${created.body.id}`).send({
+        title: 'Updated title',
+      });
+
+      expect(res.status).toBe(StatusCodes.OK);
+      expect(res.body).toMatchObject({
+        id: created.body.id,
+        title: 'Updated title',
+        description: 'Original description',
+        frequency: 'daily',
+        base_xp: 20,
+        is_active: true,
+        virtue_ids: [user.virtueIds[0]],
+      });
+    });
+
+    it('updates base_xp', async () => {
+      const created = await app.agent.post('/routines').send({
+        title: 'XP override routine',
+        frequency: 'daily',
+        base_xp: 10,
+        virtue_ids: [user.virtueIds[0]],
+      });
+      expect(created.status).toBe(StatusCodes.CREATED);
+
+      const res = await app.agent.patch(`/routines/${created.body.id}`).send({ base_xp: 99 });
+
+      expect(res.status).toBe(StatusCodes.OK);
+      expect(res.body.base_xp).toBe(99);
+    });
+
+    it('is a no-op that returns the current state when the patch is empty', async () => {
+      const created = await app.agent.post('/routines').send({
+        title: 'Untouched routine',
+        frequency: 'daily',
+        virtue_ids: [user.virtueIds[0]],
+      });
+      expect(created.status).toBe(StatusCodes.CREATED);
+
+      const res = await app.agent.patch(`/routines/${created.body.id}`).send({});
+
+      expect(res.status).toBe(StatusCodes.OK);
+      expect(res.body).toEqual(created.body);
+    });
+
+    it('clears description by setting it to null', async () => {
+      const created = await app.agent.post('/routines').send({
+        title: 'Has a description',
+        description: 'Will be cleared',
+        frequency: 'daily',
+        virtue_ids: [user.virtueIds[0]],
+      });
+      expect(created.status).toBe(StatusCodes.CREATED);
+
+      const res = await app.agent.patch(`/routines/${created.body.id}`).send({ description: null });
+
+      expect(res.status).toBe(StatusCodes.OK);
+      expect(res.body.description).toBeNull();
+    });
+
+    it('replaces tagged virtues when virtue_ids is supplied', async () => {
+      const created = await app.agent.post('/routines').send({
+        title: 'Retagged routine',
+        frequency: 'daily',
+        virtue_ids: [user.virtueIds[0]],
+      });
+      expect(created.status).toBe(StatusCodes.CREATED);
+
+      const res = await app.agent
+        .patch(`/routines/${created.body.id}`)
+        .send({ virtue_ids: [user.virtueIds[1], user.virtueIds[2]] });
+
+      expect(res.status).toBe(StatusCodes.OK);
+      expect(res.body.virtue_ids.sort()).toEqual([user.virtueIds[1], user.virtueIds[2]].sort());
+    });
+
+    it('changes frequency together with a valid scheduled_day', async () => {
+      const created = await app.agent.post('/routines').send({
+        title: 'Frequency change routine',
+        frequency: 'daily',
+        virtue_ids: [user.virtueIds[0]],
+      });
+      expect(created.status).toBe(StatusCodes.CREATED);
+
+      const res = await app.agent
+        .patch(`/routines/${created.body.id}`)
+        .send({ frequency: 'weekly', scheduled_day: 3 });
+
+      expect(res.status).toBe(StatusCodes.OK);
+      expect(res.body).toMatchObject({ frequency: 'weekly', scheduled_day: 3 });
+    });
+
+    it('rejects changing frequency without a compatible scheduled_day', async () => {
+      const created = await app.agent.post('/routines').send({
+        title: 'Bad frequency change routine',
+        frequency: 'daily',
+        virtue_ids: [user.virtueIds[0]],
+      });
+      expect(created.status).toBe(StatusCodes.CREATED);
+
+      const res = await app.agent
+        .patch(`/routines/${created.body.id}`)
+        .send({ frequency: 'weekly' });
+
+      expect(res.status).toBe(StatusCodes.BAD_REQUEST);
+    });
+
+    it('rejects duplicate virtue_ids', async () => {
+      const created = await app.agent.post('/routines').send({
+        title: 'Dup update routine',
+        frequency: 'daily',
+        virtue_ids: [user.virtueIds[0]],
+      });
+      expect(created.status).toBe(StatusCodes.CREATED);
+
+      const res = await app.agent
+        .patch(`/routines/${created.body.id}`)
+        .send({ virtue_ids: [user.virtueIds[1], user.virtueIds[1]] });
+
+      expect(res.status).toBe(StatusCodes.BAD_REQUEST);
+    });
+
+    it('rejects a virtue_id that belongs to another user', async () =>
+      withOtherUser(async (_otherApp, otherUser) => {
+        const created = await app.agent.post('/routines').send({
+          title: 'Foreign retag routine',
+          frequency: 'daily',
+          virtue_ids: [user.virtueIds[0]],
+        });
+        expect(created.status).toBe(StatusCodes.CREATED);
+
+        const res = await app.agent
+          .patch(`/routines/${created.body.id}`)
+          .send({ virtue_ids: [otherUser.virtueIds[0]] });
+
+        expect(res.status).toBe(StatusCodes.BAD_REQUEST);
+      }));
+
+    it('returns 402 when reactivating a routine would exceed the free-tier cap', async () => {
+      const spare = await app.agent.post('/routines').send({
+        title: 'Spare routine',
+        frequency: 'daily',
+        virtue_ids: [user.virtueIds[0]],
+      });
+      expect(spare.status).toBe(StatusCodes.CREATED);
+
+      const deactivated = await app.agent
+        .patch(`/routines/${spare.body.id}`)
+        .send({ is_active: false });
+      expect(deactivated.status).toBe(StatusCodes.OK);
+      expect(deactivated.body.is_active).toBe(false);
+
+      for (let i = 0; i < 10; i += 1) {
+        const res = await app.agent.post('/routines').send({
+          title: `Cap filler ${i}`,
+          frequency: 'daily',
+          virtue_ids: [user.virtueIds[0]],
+        });
+        expect(res.status).toBe(StatusCodes.CREATED);
+      }
+
+      const reactivated = await app.agent
+        .patch(`/routines/${spare.body.id}`)
+        .send({ is_active: true });
+
+      expect(reactivated.status).toBe(StatusCodes.PAYMENT_REQUIRED);
+    });
+
+    it('returns 404 for a routine that does not exist', async () => {
+      const res = await app.agent
+        .patch('/routines/00000000-0000-0000-0000-000000000000')
+        .send({ title: 'Nope' });
+
+      expect(res.status).toBe(StatusCodes.NOT_FOUND);
+    });
+
+    it("returns 404 for another user's routine and leaves it unmodified", async () =>
+      withOtherUser(async (otherApp) => {
+        const created = await app.agent.post('/routines').send({
+          title: 'Not yours',
+          frequency: 'daily',
+          virtue_ids: [user.virtueIds[0]],
+        });
+        expect(created.status).toBe(StatusCodes.CREATED);
+
+        const res = await otherApp.agent
+          .patch(`/routines/${created.body.id}`)
+          .send({ title: 'Hijacked' });
+        expect(res.status).toBe(StatusCodes.NOT_FOUND);
+
+        const list = await app.agent.get('/routines');
+        const mine = list.body.find((r: { id: string }) => r.id === created.body.id);
+        expect(mine.title).toBe('Not yours');
+      }));
+
+    it('rejects an unauthenticated request', async () => {
+      const created = await app.agent.post('/routines').send({
+        title: 'Auth check routine',
+        frequency: 'daily',
+        virtue_ids: [user.virtueIds[0]],
+      });
+      expect(created.status).toBe(StatusCodes.CREATED);
+
+      const res = await app.unauthenticatedAgent
+        .patch(`/routines/${created.body.id}`)
+        .send({ title: 'Should not work' });
+
+      expect(res.status).toBe(StatusCodes.UNAUTHORIZED);
+    });
+  });
+
+  describe('DELETE /routines/{id}', () => {
+    it('deletes a routine and cascades its virtue tags and completion history', async () => {
+      const created = await app.agent.post('/routines').send({
+        title: 'Deletable routine',
+        frequency: 'daily',
+        virtue_ids: [user.virtueIds[0]],
+      });
+      expect(created.status).toBe(StatusCodes.CREATED);
+
+      const completed = await app.agent.post(`/routines/${created.body.id}/complete`);
+      expect(completed.status).toBe(StatusCodes.OK);
+
+      const res = await app.agent.delete(`/routines/${created.body.id}`);
+      expect(res.status).toBe(StatusCodes.NO_CONTENT);
+      expect(res.body).toEqual({});
+
+      const list = await app.agent.get('/routines');
+      expect(list.body.map((r: { id: string }) => r.id)).not.toContain(created.body.id);
+
+      const { rows: virtueRows } = await database.client.query(
+        'select 1 from public.routine_virtues where routine_id = $1',
+        [created.body.id],
+      );
+      expect(virtueRows).toHaveLength(0);
+
+      const { rows: completionRows } = await database.client.query(
+        'select 1 from public.routine_completions where routine_id = $1',
+        [created.body.id],
+      );
+      expect(completionRows).toHaveLength(0);
+    });
+
+    it('returns 404 for a routine that does not exist', async () => {
+      const res = await app.agent.delete('/routines/00000000-0000-0000-0000-000000000000');
+
+      expect(res.status).toBe(StatusCodes.NOT_FOUND);
+    });
+
+    it("returns 404 for another user's routine and leaves it in place", async () =>
+      withOtherUser(async (otherApp) => {
+        const created = await app.agent.post('/routines').send({
+          title: 'Not yours to delete',
+          frequency: 'daily',
+          virtue_ids: [user.virtueIds[0]],
+        });
+        expect(created.status).toBe(StatusCodes.CREATED);
+
+        const res = await otherApp.agent.delete(`/routines/${created.body.id}`);
+        expect(res.status).toBe(StatusCodes.NOT_FOUND);
+
+        const list = await app.agent.get('/routines');
+        expect(list.body.map((r: { id: string }) => r.id)).toContain(created.body.id);
+      }));
+
+    it('rejects an unauthenticated request', async () => {
+      const created = await app.agent.post('/routines').send({
+        title: 'Auth check delete routine',
+        frequency: 'daily',
+        virtue_ids: [user.virtueIds[0]],
+      });
+      expect(created.status).toBe(StatusCodes.CREATED);
+
+      const res = await app.unauthenticatedAgent.delete(`/routines/${created.body.id}`);
+
+      expect(res.status).toBe(StatusCodes.UNAUTHORIZED);
+    });
+  });
 });

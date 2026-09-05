@@ -2,7 +2,12 @@ import { StatusCodes } from 'http-status-codes';
 import { Config, Dependencies } from '../../config';
 import { Request, Response } from 'express';
 import { AuthenticatedUser } from '../../auth/types';
-import { RoutineCreateInput, RoutineFrequency, RoutineListQuery } from '../../types';
+import {
+  RoutineCreateInput,
+  RoutineFrequency,
+  RoutineListQuery,
+  RoutineUpdateInput,
+} from '../../types';
 import { BadRequest } from '../../errors/badRequest';
 
 export class RoutineRouter {
@@ -57,6 +62,39 @@ export class RoutineRouter {
     const routine = await this.dependencies.routineService.create(userId, input);
 
     return res.status(StatusCodes.CREATED).json(routine);
+  }
+
+  async update(req: Request, res: Response) {
+    const userId = this.userId(req);
+    const { id } = req.params;
+    const { title, description, frequency, scheduled_day, base_xp, is_active, virtue_ids } =
+      req.body;
+
+    // Only fields actually present in the body are forwarded, so an omitted
+    // field leaves the column untouched; `description`/`scheduled_day` may be
+    // explicitly `null` per RoutineUpdate, which the spreads below preserve.
+    const patch: RoutineUpdateInput = {
+      ...(title !== undefined && { title }),
+      ...(description !== undefined && { description }),
+      ...(frequency !== undefined && { frequency }),
+      ...(scheduled_day !== undefined && { scheduled_day }),
+      ...(base_xp !== undefined && { base_xp }),
+      ...(is_active !== undefined && { is_active }),
+      ...(virtue_ids !== undefined && { virtue_ids }),
+    };
+
+    const routine = await this.dependencies.routineService.update(userId, id as string, patch);
+
+    return res.status(StatusCodes.OK).json(routine);
+  }
+
+  async delete(req: Request, res: Response) {
+    const userId = this.userId(req);
+    const { id } = req.params;
+
+    await this.dependencies.routineService.delete(userId, id as string);
+
+    return res.status(StatusCodes.NO_CONTENT).send();
   }
 
   async complete(req: Request, res: Response) {

@@ -1,6 +1,12 @@
 import { Config, Dependencies } from '../../config';
 import Storage from './RoutineStorage';
-import { Routine, RoutineCreateInput, RoutineListQuery, ScoringResult } from '../../types';
+import {
+  Routine,
+  RoutineCreateInput,
+  RoutineListQuery,
+  RoutineUpdateInput,
+  ScoringResult,
+} from '../../types';
 
 class RoutineService {
   config: Config;
@@ -19,6 +25,14 @@ class RoutineService {
 
   create(userId: string, input: RoutineCreateInput): Promise<Routine> {
     return this.storage.create(userId, input);
+  }
+
+  update(userId: string, routineId: string, patch: RoutineUpdateInput): Promise<Routine> {
+    return this.storage.update(userId, routineId, patch);
+  }
+
+  delete(userId: string, routineId: string): Promise<void> {
+    return this.storage.delete(userId, routineId);
   }
 
   complete(userId: string, routineId: string, completedAt?: string): Promise<ScoringResult> {

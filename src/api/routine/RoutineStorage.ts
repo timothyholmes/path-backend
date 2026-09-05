@@ -1,6 +1,12 @@
 import { Pool, PoolClient } from 'pg';
 import { Config, Dependencies } from '../../config';
-import { Routine, RoutineCreateInput, RoutineListQuery, ScoringResult } from '../../types';
+import {
+  Routine,
+  RoutineCreateInput,
+  RoutineListQuery,
+  RoutineUpdateInput,
+  ScoringResult,
+} from '../../types';
 import { NotFound } from '../../errors/notFound';
 import { Conflict } from '../../errors/conflict';
 import { BadRequest } from '../../errors/badRequest';
@@ -40,6 +46,28 @@ function toRoutine(row: RoutineRow): Routine {
     virtue_ids: row.virtue_ids,
     created_at: row.created_at.toISOString(),
   };
+}
+
+/**
+ * Mirrors the `routines_scheduled_day_valid` CHECK constraint in application
+ * code. Postgres treats a CHECK expression that evaluates to NULL as
+ * satisfied rather than violated, so `UPDATE routines SET frequency = $1`
+ * alone — leaving a NULL `scheduled_day` untouched — would silently produce a
+ * `weekly`/`monthly` routine with no scheduled day instead of failing. A
+ * partial update can change either column without the other, so the
+ * constraint must be re-checked here against the *effective* combination.
+ */
+function assertValidSchedule(frequency: Routine['frequency'], scheduledDay: number | null): void {
+  const valid =
+    (frequency === 'daily' && scheduledDay === null) ||
+    (frequency === 'weekly' && scheduledDay !== null && scheduledDay >= 0 && scheduledDay <= 6) ||
+    (frequency === 'monthly' && scheduledDay !== null && scheduledDay >= 1 && scheduledDay <= 31);
+
+  if (!valid) {
+    throw new BadRequest(
+      'scheduled_day is invalid for the given frequency (weekly: 0-6, monthly: 1-31, daily: omit/null).',
+    );
+  }
 }
 
 /**
@@ -111,9 +139,42 @@ class RoutineStorage {
       return toRoutine({ ...routine, virtue_ids: input.virtue_ids });
     } catch (err) {
       await client.query('rollback').catch(() => undefined);
-      throw this.mapCreateError(err);
+      throw this.mapWriteError(err);
     } finally {
       client.release();
+    }
+  }
+
+  async update(userId: string, routineId: string, patch: RoutineUpdateInput): Promise<Routine> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('begin');
+
+      const row = await this.applyScalarUpdate(client, userId, routineId, patch);
+      if (!row) {
+        throw new NotFound(`Routine with ID ${routineId} not found`);
+      }
+
+      const virtueIds = await this.applyVirtueUpdate(client, userId, routineId, patch);
+
+      await client.query('commit');
+      return toRoutine({ ...row, virtue_ids: virtueIds });
+    } catch (err) {
+      await client.query('rollback').catch(() => undefined);
+      throw this.mapWriteError(err);
+    } finally {
+      client.release();
+    }
+  }
+
+  async delete(userId: string, routineId: string): Promise<void> {
+    const { rowCount } = await this.pool.query(
+      `delete from public.routines where id = $1 and user_id = $2`,
+      [routineId, userId],
+    );
+
+    if (rowCount === 0) {
+      throw new NotFound(`Routine with ID ${routineId} not found`);
     }
   }
 
@@ -181,6 +242,82 @@ class RoutineStorage {
     return { ...rows[0], virtue_ids: virtueRows.map((row) => row.virtue_id) };
   }
 
+  /**
+   * Updates only the scalar columns present on `patch`, so an omitted field is
+   * left untouched rather than overwritten with a default. Returns null if the
+   * routine doesn't exist or isn't owned by `userId`; returns the current row
+   * unchanged (no UPDATE issued) when `patch` carries no scalar fields at all.
+   */
+  private async applyScalarUpdate(
+    client: PoolClient,
+    userId: string,
+    routineId: string,
+    patch: RoutineUpdateInput,
+  ): Promise<RoutineRow | null> {
+    const { rows: currentRows } = await client.query<RoutineRow>(
+      `select id, user_id, title, description, frequency, scheduled_day, base_xp, is_active, created_at
+         from public.routines where id = $1 and user_id = $2
+         for update`,
+      [routineId, userId],
+    );
+    const current = currentRows[0];
+    if (!current) {
+      return null;
+    }
+
+    assertValidSchedule(
+      patch.frequency ?? current.frequency,
+      patch.scheduled_day !== undefined ? patch.scheduled_day : current.scheduled_day,
+    );
+
+    const columns: Array<[string, unknown]> = [];
+    if (patch.title !== undefined) columns.push(['title', patch.title]);
+    if (patch.description !== undefined) columns.push(['description', patch.description]);
+    if (patch.frequency !== undefined) columns.push(['frequency', patch.frequency]);
+    if (patch.scheduled_day !== undefined) columns.push(['scheduled_day', patch.scheduled_day]);
+    if (patch.base_xp !== undefined) columns.push(['base_xp', patch.base_xp]);
+    if (patch.is_active !== undefined) columns.push(['is_active', patch.is_active]);
+
+    if (columns.length === 0) {
+      return current;
+    }
+
+    const setClause = columns.map(([column], index) => `${column} = $${index + 1}`).join(', ');
+    const values = columns.map(([, value]) => value);
+
+    const { rows } = await client.query<RoutineRow>(
+      `update public.routines set ${setClause}
+        where id = $${values.length + 1} and user_id = $${values.length + 2}
+        returning id, user_id, title, description, frequency, scheduled_day, base_xp, is_active, created_at`,
+      [...values, routineId, userId],
+    );
+    return rows[0] ?? null;
+  }
+
+  /** Replaces the routine's tagged virtues when `patch.virtue_ids` is present; otherwise returns the current tags. */
+  private async applyVirtueUpdate(
+    client: PoolClient,
+    userId: string,
+    routineId: string,
+    patch: RoutineUpdateInput,
+  ): Promise<string[]> {
+    if (patch.virtue_ids === undefined) {
+      const { rows } = await client.query<{ virtue_id: string }>(
+        `select virtue_id from public.routine_virtues where routine_id = $1`,
+        [routineId],
+      );
+      return rows.map((row) => row.virtue_id);
+    }
+
+    await client.query(`delete from public.routine_virtues where routine_id = $1`, [routineId]);
+    await client.query(
+      `insert into public.routine_virtues (routine_id, virtue_id, user_id)
+       select $1, unnest($2::uuid[]), $3`,
+      [routineId, patch.virtue_ids, userId],
+    );
+    return patch.virtue_ids;
+  }
+
   private async insertCompletion(
     client: PoolClient,
     userId: string,
@@ -203,7 +340,11 @@ class RoutineStorage {
     }
   }
 
-  private mapCreateError(err: unknown): Error {
+  private mapWriteError(err: unknown): Error {
+    if (err instanceof ServerError) {
+      return err;
+    }
+
     const planLimit = parsePlanLimitError(err);
     if (planLimit?.table === 'routines') {
       return new PaymentRequired(
