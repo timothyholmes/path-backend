@@ -8,6 +8,8 @@ import ReservationStorage from './api/reservation/ReservationStorage';
 import AvailabilityService from './api/availability/AvailabilityService';
 import RoutineService from './api/routine/RoutineService';
 import RoutineStorage from './api/routine/RoutineStorage';
+import SessionService from './api/session/SessionService';
+import SessionStorage from './api/session/SessionStorage';
 import AuthService from './auth/AuthService';
 
 export interface Config {
@@ -34,6 +36,8 @@ export interface Dependencies {
   availabilityService: AvailabilityService;
   routineService: RoutineService;
   routineStorage: RoutineStorage;
+  sessionService: SessionService;
+  sessionStorage: SessionStorage;
   authService: AuthService;
   /** Shared Postgres pool for Postgres-backed storage (see `src/api/shared/db.ts`). */
   pool: Pool;

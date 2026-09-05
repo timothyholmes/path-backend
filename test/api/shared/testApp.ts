@@ -8,7 +8,7 @@ import { signTestToken, withAuth, TestAgent } from '../../helpers';
 
 const API_SPEC = path.resolve(__dirname, '../../../api-spec.yml');
 
-export interface RoutineTestApp {
+export interface DbTestApp {
   agent: TestAgent;
   /** Same server, no bearer token attached — for asserting on 401s. */
   unauthenticatedAgent: TestAgent;
@@ -18,14 +18,13 @@ export interface RoutineTestApp {
 /**
  * Builds a full `Server` (with the real OpenAPI validator and routers) pointed
  * at `databaseUrl` — a migrated temp database from `test/db/helpers.ts` — and
- * authenticated as `userId`. The routine module is the first Postgres-backed
- * resource, so it needs a real database rather than the in-memory storage the
- * reservation/availability tests use.
+ * authenticated as `userId`. Postgres-backed resources need a real database
+ * rather than the in-memory storage the reservation/availability tests use.
  *
  * Callers must `dependencies.pool.end()` at teardown; the pool is only
  * released here, not on the temp database's own drop.
  */
-export function createRoutineTestApp(databaseUrl: string, userId: string): RoutineTestApp {
+export function createDbTestApp(databaseUrl: string, userId: string): DbTestApp {
   const base = getConfig();
   const config: Config = { ...base, database: { ...base.database, url: databaseUrl } };
 

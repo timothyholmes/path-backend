@@ -10,9 +10,10 @@ PostgreSQL functions, and Row Level Security is the actual boundary between user
 
 > The `src/api/reservation` and `src/api/availability` modules are a room-reservations sample left over
 > from the project scaffold — a worked example of the Router → Service → Storage layering, not Path AI.
-> `src/api/routine` is the first real Path AI resource: it implements the `/routines` endpoints from
-> `api-spec.yml` against the real Postgres schema in `supabase/`, following the same layering. Further
-> Path AI resources belong here too, unless/until they move to Supabase Edge Functions.
+> `src/api/routine` and `src/api/session` are the real Path AI resources: they implement the
+> `/routines` and `/sessions` endpoints from `api-spec.yml` against the real Postgres schema in
+> `supabase/`, following the same layering. Further Path AI resources belong here too, unless/until
+> they move to Supabase Edge Functions.
 
 ---
 
@@ -151,7 +152,7 @@ npm test                # Everything
 npm run test:watch      # Watch mode
 ```
 
-Tests under `test/db/` and `test/api/routine/` need a PostgreSQL server and **skip themselves when
+Tests under `test/db/`, `test/api/routine/`, and `test/api/session/` need a PostgreSQL server and **skip themselves when
 `DATABASE_URL` is unset**, so `npm test` works on a fresh checkout with nothing running. To include them,
 point at a database:
 
@@ -236,7 +237,8 @@ both the backend and the mobile app's dependencies.
 api-spec.yml              OpenAPI contract for the HTTP surface
 apps/mobile/              Expo Router app (iOS, Android, web) — the Path AI client
 config/                   Layered YAML config with encrypted secrets
-src/                      Express app; api/reservation & api/availability are scaffold, api/routine is real
+src/                      Express app; api/reservation & api/availability are scaffold,
+                          api/routine & api/session are real
 supabase/
   migrations/             Schema, functions, RLS, plan limits, cron — source of truth
   seed.sql                Baseline dev account, applied by `db:reset`

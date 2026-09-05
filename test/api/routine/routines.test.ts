@@ -1,13 +1,13 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { StatusCodes } from 'http-status-codes';
 import { TempDatabase, createMigratedDatabase, hasDatabase } from '../../db/helpers';
-import { seedUser, SeededUser } from './fixtures';
-import { createRoutineTestApp, RoutineTestApp } from './helpers';
+import { seedUser, SeededUser } from '../shared/fixtures';
+import { createDbTestApp, DbTestApp } from '../shared/testApp';
 
 describe.skipIf(!hasDatabase)('routines', () => {
   let database: TempDatabase;
   let user: SeededUser;
-  let app: RoutineTestApp;
+  let app: DbTestApp;
 
   beforeAll(async () => {
     database = await createMigratedDatabase('routines');
@@ -22,7 +22,7 @@ describe.skipIf(!hasDatabase)('routines', () => {
   // ordering or on what an earlier test left behind.
   beforeEach(async () => {
     user = await seedUser(database.client);
-    app = createRoutineTestApp(database.url, user.id);
+    app = createDbTestApp(database.url, user.id);
   });
 
   afterEach(async () => {
@@ -30,10 +30,10 @@ describe.skipIf(!hasDatabase)('routines', () => {
   });
 
   async function withOtherUser<T>(
-    fn: (other: RoutineTestApp, otherUser: SeededUser) => Promise<T>,
+    fn: (other: DbTestApp, otherUser: SeededUser) => Promise<T>,
   ): Promise<T> {
     const otherUser = await seedUser(database.client);
-    const otherApp = createRoutineTestApp(database.url, otherUser.id);
+    const otherApp = createDbTestApp(database.url, otherUser.id);
     try {
       return await fn(otherApp, otherUser);
     } finally {

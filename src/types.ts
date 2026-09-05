@@ -87,3 +87,60 @@ export interface ScoringResult {
   current_streak: number;
   ledger_entry_ids: string[];
 }
+
+export type SessionInstanceStatus = 'scheduled' | 'in_progress' | 'completed' | 'skipped';
+
+export interface Session {
+  id: string;
+  user_id: string;
+  title: string;
+  target_duration_minutes: number;
+  recurrence_rule: Record<string, unknown> | null;
+  base_xp: number;
+  is_active: boolean;
+  virtue_ids: string[];
+  created_at: string;
+}
+
+export interface SessionCreateInput {
+  title: string;
+  target_duration_minutes: number;
+  recurrence_rule?: Record<string, unknown>;
+  base_xp?: number;
+  virtue_ids: string[];
+}
+
+export interface SessionListQuery {
+  isActive?: boolean;
+}
+
+/** Partial update; a field's absence (as opposed to `null`, where the schema allows it) leaves it unchanged. */
+export interface SessionUpdateInput {
+  title?: string;
+  target_duration_minutes?: number;
+  recurrence_rule?: Record<string, unknown> | null;
+  base_xp?: number;
+  is_active?: boolean;
+  virtue_ids?: string[];
+}
+
+export interface SessionInstance {
+  id: string;
+  session_id: string;
+  user_id: string;
+  scheduled_at: string | null;
+  started_at: string | null;
+  ended_at: string | null;
+  actual_duration_seconds: number | null;
+  status: SessionInstanceStatus;
+  xp_earned: number | null;
+  skip_penalty_xp: number | null;
+  focus_mode_activated: boolean;
+}
+
+/** What the client needs to render the fullscreen timer for a started instance. */
+export interface TimerState {
+  instance: SessionInstance;
+  server_time: string;
+  target_duration_seconds: number;
+}
