@@ -179,6 +179,24 @@ npm run db:start
 npm run db:test
 ```
 
+### RLS over PostgREST
+
+pgTAP proves the policies from inside the database, with `set local role authenticated` and a
+hand-written `request.jwt.claims`. That skips the layer the mobile client actually uses: schema
+exposure, the JWT-to-role mapping, table and column grants, and resource embedding all sit between a
+correct policy and the wire, and any one of them can undo it. `test/db/postgrest.test.ts` asserts the
+same guarantees from outside over HTTP, holding nothing but the published anon key and a user JWT.
+
+It needs a running stack and skips itself otherwise, the same way the `DATABASE_URL` tests do:
+
+```bash
+npm run db:start
+eval "$(npx supabase status -o env | grep -E '^[A-Z_]+=' | sed 's/^/export SUPABASE_/')"
+npx vitest --pool=forks run test/db/postgrest.test.ts
+```
+
+`./scripts/ci-supabase-pgtap.sh` runs it alongside pgTAP.
+
 ### Against a plain PostgreSQL server
 
 The migrations carry no Supabase-specific branches. A compat shim
@@ -221,15 +239,49 @@ from one codebase. It talks to the local Supabase stack directly via `@supabase/
 RLS-as-boundary design described in `CLAUDE.md`.
 
 ```bash
-npm run db:start                     # from the repo root, if not already running
-supabase status                      # copy the API URL and anon key
-cd apps/mobile
-cp .env.example .env.local           # fill in EXPO_PUBLIC_SUPABASE_URL / _ANON_KEY
-pnpm start                           # then press w for web, i for iOS sim, a for Android
+pnpm install                         # from the repo root; installs backend + app
+npm run db:start                     # starts the local Supabase stack (needs Docker)
 ```
+
+The Supabase CLI is a devDependency rather than a global, so reach for it through `npx`. This writes
+the app's env file straight from the running stack, which beats copying two long values by hand:
+
+```bash
+npx supabase status -o env | sed -n 's/^ANON_KEY=/EXPO_PUBLIC_SUPABASE_ANON_KEY=/p; s/^API_URL=/EXPO_PUBLIC_SUPABASE_URL=/p' | tr -d '"' > apps/mobile/.env.local
+```
+
+Then start Expo (`w` for web, `i` for the iOS simulator, `a` for Android):
+
+```bash
+pnpm --filter mobile start
+```
+
+Sign in with the account `supabase/seed.sql` creates: **dev@path.test** / **path-dev-password**.
 
 It's part of the pnpm workspace (`pnpm-workspace.yaml`), so `pnpm install` at the repo root installs
 both the backend and the mobile app's dependencies.
+
+### How the client talks to the database
+
+There is no API server in this path. `apps/mobile/lib/supabase.ts` holds the anon key, sign-in
+exchanges it for a user JWT, and every query from then on goes straight to PostgREST — so the RLS
+policies in `supabase/migrations/20260804121200_rls.sql` are the whole boundary between one user's
+data and another's. `components/Home.tsx` is the worked example: none of its three queries filters on
+`user_id`, because adding one would only hide whether the policies work.
+
+The client is typed with the generated `Database` type, so a column that does not exist is a compile
+error rather than a PostgREST 400 at runtime. Regenerate it with `npm run db:types` after any
+migration.
+
+Two things to know when running locally:
+
+- **`JWT issued at future` right after signing in.** The auth and REST containers can drift a
+  fraction of a second apart, and PostgREST rejects a token whose `iat` is ahead of its clock. It
+  clears on the next request or a reload; `npm run db:stop && npm run db:start` resets it.
+- **`calculate_and_award_xp` needs an explicit `p_source_id`.** It is the one parameter without a SQL
+  default, so the generated type marks it required and non-null even though the column is nullable
+  and global bonus XP has no source row. Callers pass `null` through a cast; see the comment in
+  `components/Home.tsx`.
 
 ## Layout
 
