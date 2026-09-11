@@ -144,3 +144,87 @@ export interface TimerState {
   server_time: string;
   target_duration_seconds: number;
 }
+
+export type GoalStatus = 'backlog' | 'active' | 'completed' | 'archived';
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  title: string;
+  description: string | null;
+  is_quest: boolean;
+  status: GoalStatus;
+  /** `YYYY-MM-DD`; a calendar date, deliberately not a timestamp. */
+  due_date: string | null;
+  base_xp: number;
+  parent_goal_id: string | null;
+  display_order: number;
+  virtue_ids: string[];
+  completed_at: string | null;
+  created_at: string;
+}
+
+export interface GoalCreateInput {
+  title: string;
+  description?: string;
+  is_quest?: boolean;
+  status?: GoalStatus;
+  due_date?: string;
+  base_xp?: number;
+  parent_goal_id?: string;
+  virtue_ids?: string[];
+}
+
+export interface GoalListQuery {
+  status?: GoalStatus;
+  isQuest?: boolean;
+  /** Absent means top-level goals only, not "any parent" (api-spec.yml). */
+  parentGoalId?: string;
+}
+
+/** Partial update; a field's absence (as opposed to `null`, where the schema allows it) leaves it unchanged. */
+export interface GoalUpdateInput {
+  title?: string;
+  description?: string;
+  is_quest?: boolean;
+  status?: GoalStatus;
+  due_date?: string | null;
+  display_order?: number;
+  virtue_ids?: string[];
+}
+
+export type BacklogSource = 'manual' | 'ai_suggestion' | 'field_log';
+
+export interface BacklogItem {
+  id: string;
+  user_id: string;
+  title: string;
+  notes: string | null;
+  source: BacklogSource;
+  source_id: string | null;
+  virtue_id: string | null;
+  promoted_to_goal_id: string | null;
+  created_at: string;
+}
+
+export interface BacklogItemCreateInput {
+  title: string;
+  notes?: string;
+  source?: BacklogSource;
+  source_id?: string;
+  virtue_id?: string;
+}
+
+/** Partial update; a field's absence (as opposed to `null`, where the schema allows it) leaves it unchanged. */
+export interface BacklogItemUpdateInput {
+  title?: string;
+  notes?: string | null;
+  virtue_id?: string | null;
+}
+
+/** Overrides applied to the goal a backlog item is promoted into. */
+export interface BacklogPromoteInput {
+  is_quest?: boolean;
+  due_date?: string;
+  base_xp?: number;
+}

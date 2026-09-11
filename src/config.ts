@@ -10,6 +10,8 @@ import RoutineService from './api/routine/RoutineService';
 import RoutineStorage from './api/routine/RoutineStorage';
 import SessionService from './api/session/SessionService';
 import SessionStorage from './api/session/SessionStorage';
+import GoalService from './api/goal/GoalService';
+import GoalStorage from './api/goal/GoalStorage';
 import AuthService from './auth/AuthService';
 
 export interface Config {
@@ -38,6 +40,8 @@ export interface Dependencies {
   routineStorage: RoutineStorage;
   sessionService: SessionService;
   sessionStorage: SessionStorage;
+  goalService: GoalService;
+  goalStorage: GoalStorage;
   authService: AuthService;
   /** Shared Postgres pool for Postgres-backed storage (see `src/api/shared/db.ts`). */
   pool: Pool;
