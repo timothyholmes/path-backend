@@ -4,6 +4,7 @@ export interface PostgresError extends Error {
   detail?: string;
   constraint?: string;
   table?: string;
+  column?: string;
 }
 
 export function isPostgresError(err: unknown): err is PostgresError {

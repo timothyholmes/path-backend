@@ -530,6 +530,12 @@ paths:
       operationId: updateGoal
       tags: [goals]
       summary: Update goal (status, quest flag, due date)
+      description: >
+        Partial update of a goal. Activating a goal (`status: active`) when the
+        free-tier cap of 3 active goals is already reached returns `402 Payment
+        Required`. Supplying `virtue_ids` replaces the goal's tagged virtues.
+        Setting `status` to `completed` here only records the status — it awards
+        no XP; use `POST /goals/{id}/complete` for that.
       parameters:
         - $ref: '#/components/parameters/PathId'
       requestBody:
@@ -549,6 +555,8 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
         '404':
           $ref: '#/components/responses/NotFound'
     delete:
@@ -576,7 +584,14 @@ paths:
       summary: Complete goal
       description: >
         Marks the goal completed and invokes `calculate_and_award_xp`. Quests award a
-        bonus over standard goals.
+        bonus over standard goals. Completing a subtask credits its parent goal and,
+        when the subtask has no virtues of its own, the parent's virtues.
+
+
+        Returns `402 Payment Required` in one narrow case: the free-tier cap of 3
+        active goals is re-checked on every write to a goal, so a user who is
+        *already* over it — a lapsed premium subscription — must get back under the
+        cap before any goal can be completed.
       parameters:
         - $ref: '#/components/parameters/PathId'
       responses:
@@ -588,6 +603,8 @@ paths:
                 $ref: '#/components/schemas/ScoringResult'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -642,7 +659,8 @@ paths:
       summary: Update backlog item
       description: >
         Edits an unpromoted backlog idea's title, notes, or virtue. Once an item is
-        promoted to a goal, edit the resulting goal via `PATCH /goals/{id}` instead.
+        promoted to a goal, edit the resulting goal via `PATCH /goals/{id}` instead;
+        editing a promoted item returns `400 Bad Request`.
       parameters:
         - $ref: '#/components/parameters/PathId'
       requestBody:
@@ -686,6 +704,11 @@ paths:
       operationId: promoteBacklogItem
       tags: [goals]
       summary: Promote backlog item to active goal
+      description: >
+        Creates an active goal from the idea and stamps the item with the new goal's
+        id; the item's notes become the goal's description and its virtue the goal's
+        single tag. Because the goal is created active, the free-tier cap of 3 active
+        goals applies and returns `402 Payment Required` when it is reached.
       parameters:
         - $ref: '#/components/parameters/PathId'
       requestBody:
@@ -713,6 +736,8 @@ paths:
                 $ref: '#/components/schemas/Goal'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '402':
+          $ref: '#/components/responses/PaymentRequired'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':

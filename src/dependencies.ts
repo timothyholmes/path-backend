@@ -5,6 +5,8 @@ import RoutineService from './api/routine/RoutineService';
 import RoutineStorage from './api/routine/RoutineStorage';
 import SessionService from './api/session/SessionService';
 import SessionStorage from './api/session/SessionStorage';
+import GoalService from './api/goal/GoalService';
+import GoalStorage from './api/goal/GoalStorage';
 import { createDbPool } from './api/shared/db';
 import AuthService from './auth/AuthService';
 import { Config, Dependencies } from './config';
@@ -24,6 +26,8 @@ export function getDependencies(config: Config, overrides?: Partial<Dependencies
   const sessionStorage = overrides?.sessionStorage ?? new SessionStorage(config, { pool, logger });
   const sessionService =
     overrides?.sessionService ?? new SessionService(config, { sessionStorage, logger });
+  const goalStorage = overrides?.goalStorage ?? new GoalStorage(config, { pool, logger });
+  const goalService = overrides?.goalService ?? new GoalService(config, { goalStorage, logger });
   const authService = overrides?.authService ?? new AuthService(config, { logger });
 
   return {
@@ -34,6 +38,8 @@ export function getDependencies(config: Config, overrides?: Partial<Dependencies
     routineStorage,
     sessionService,
     sessionStorage,
+    goalService,
+    goalStorage,
     authService,
     pool,
     logger,
