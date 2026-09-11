@@ -45,7 +45,9 @@ tags:
   - name: today
     description: Aggregated Today view.
   - name: profile
-    description: Profile, levels, virtues, and XP history.
+    description: Profile, global level, streak, and XP history.
+  - name: virtues
+    description: Virtues, their levels, and per-virtue XP history.
   - name: routines
     description: Recurring routines and completion.
   - name: goals
@@ -159,10 +161,37 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /profile/virtues:
+  /profile/xp-ledger:
+    get:
+      operationId: getXpLedger
+      tags: [profile]
+      summary: XP transaction history (cursor-paginated)
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of XP ledger entries, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/XpLedgerEntry'
+                  next_cursor:
+                    $ref: '#/components/schemas/NextCursor'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ---------------------------------------------------------------- virtues
+  /virtues:
     get:
       operationId: listVirtues
-      tags: [profile]
+      tags: [virtues]
       summary: All virtues with levels and XP
       responses:
         '200':
@@ -177,7 +206,7 @@ paths:
           $ref: '#/components/responses/Unauthorized'
     post:
       operationId: createVirtue
-      tags: [profile]
+      tags: [virtues]
       summary: Create virtue
       description: >
         Adds a custom virtue. Sign-up seeds four starter virtues, which is also the
@@ -209,10 +238,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
-  /profile/virtues/{id}:
+  /virtues/{id}:
     patch:
       operationId: updateVirtue
-      tags: [profile]
+      tags: [virtues]
       summary: Update virtue
       description: >
         Partial update of a virtue's presentation (`name`, `icon`, `color`,
@@ -247,7 +276,7 @@ paths:
                 $ref: '#/components/schemas/Error'
     delete:
       operationId: deleteVirtue
-      tags: [profile]
+      tags: [virtues]
       summary: Delete virtue
       description: >
         Permanently deletes a virtue and untags it from routines, goals, sessions,
@@ -263,10 +292,10 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /profile/virtues/{id}/history:
+  /virtues/{id}/history:
     get:
       operationId: getVirtueHistory
-      tags: [profile]
+      tags: [virtues]
       summary: XP history for a virtue (chart data)
       parameters:
         - $ref: '#/components/parameters/PathId'
@@ -293,32 +322,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '404':
           $ref: '#/components/responses/NotFound'
-
-  /profile/xp-ledger:
-    get:
-      operationId: getXpLedger
-      tags: [profile]
-      summary: XP transaction history (cursor-paginated)
-      parameters:
-        - $ref: '#/components/parameters/Cursor'
-        - $ref: '#/components/parameters/Limit'
-      responses:
-        '200':
-          description: A page of XP ledger entries, newest first.
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [data]
-                properties:
-                  data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/XpLedgerEntry'
-                  next_cursor:
-                    $ref: '#/components/schemas/NextCursor'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
 
   # --------------------------------------------------------------- routines
   /routines:
