@@ -12,6 +12,8 @@ import SessionService from './api/session/SessionService';
 import SessionStorage from './api/session/SessionStorage';
 import GoalService from './api/goal/GoalService';
 import GoalStorage from './api/goal/GoalStorage';
+import VirtueService from './api/virtue/VirtueService';
+import VirtueStorage from './api/virtue/VirtueStorage';
 import AuthService from './auth/AuthService';
 
 export interface Config {
@@ -42,6 +44,8 @@ export interface Dependencies {
   sessionStorage: SessionStorage;
   goalService: GoalService;
   goalStorage: GoalStorage;
+  virtueService: VirtueService;
+  virtueStorage: VirtueStorage;
   authService: AuthService;
   /** Shared Postgres pool for Postgres-backed storage (see `src/api/shared/db.ts`). */
   pool: Pool;

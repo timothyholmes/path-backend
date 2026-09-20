@@ -228,3 +228,50 @@ export interface BacklogPromoteInput {
   due_date?: string;
   base_xp?: number;
 }
+
+export interface Virtue {
+  id: string;
+  user_id: string;
+  name: string;
+  icon: string | null;
+  color: string | null;
+  /** Maintained by `calculate_and_award_xp`, never written through this API. */
+  xp: number;
+  level: number;
+  display_order: number;
+}
+
+export interface VirtueCreateInput {
+  name: string;
+  icon?: string;
+  color?: string;
+  display_order?: number;
+}
+
+/** Partial update; a field's absence leaves it unchanged. XP and level are not settable. */
+export interface VirtueUpdateInput {
+  name?: string;
+  icon?: string;
+  color?: string;
+  display_order?: number;
+}
+
+/** Inclusive `YYYY-MM-DD` bounds; either side absent means "unbounded in that direction". */
+export interface VirtueHistoryQuery {
+  from?: string;
+  to?: string;
+}
+
+export interface VirtueHistoryPoint {
+  /** `YYYY-MM-DD` in the user's timezone, matching how `daily_activity` buckets a day. */
+  date: string;
+  xp: number;
+  /** All-time total through `date`, so `level` is the level actually held that day. */
+  cumulative_xp: number;
+  level: number;
+}
+
+export interface VirtueHistory {
+  virtue_id: string;
+  points: VirtueHistoryPoint[];
+}
