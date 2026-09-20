@@ -2,7 +2,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 
-select plan(15);
+select plan(17);
 
 insert into auth.users (id, email, raw_user_meta_data)
 values
@@ -165,6 +165,34 @@ select is(
       and c.relname = 'xp_ledger_default'),
   1,
   'a default partition catches rows outside the provisioned range'
+);
+
+-- ------------------------------------------ virtue deletion keeps the ledger
+-- api-spec.yml's DELETE /virtues/{id} retains XP already recorded against the
+-- virtue, and profiles.global_xp is a running total that is never recomputed
+-- from the ledger, so cascading those rows away would leave the two
+-- unreconcilable. virtue_id is nullable (global-only XP writes a null), so the
+-- FK sets just that column rather than deleting the row.
+select public.calculate_and_award_xp(
+  'c0000000-0000-4000-8000-0000000000c0', 'goal', null, 40,
+  array[(select id from public.virtues
+          where user_id = 'c0000000-0000-4000-8000-0000000000c0' and name = 'Body')]);
+
+delete from public.virtues
+ where user_id = 'c0000000-0000-4000-8000-0000000000c0' and name = 'Body';
+
+select is(
+  (select count(*)::integer from public.xp_ledger
+    where user_id = 'c0000000-0000-4000-8000-0000000000c0' and final_xp = 40),
+  1,
+  'deleting a virtue retains the XP it earned'
+);
+
+select is(
+  (select virtue_id from public.xp_ledger
+    where user_id = 'c0000000-0000-4000-8000-0000000000c0' and final_xp = 40),
+  null::uuid,
+  'the retained ledger row is orphaned from the virtue rather than deleted'
 );
 
 select * from finish();

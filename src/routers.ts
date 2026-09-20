@@ -5,6 +5,7 @@ import { AvailabilityRouter } from './api/availability/AvailabilityRouter';
 import { RoutineRouter } from './api/routine/RoutineRouter';
 import { SessionRouter } from './api/session/SessionRouter';
 import { GoalRouter } from './api/goal/GoalRouter';
+import { VirtueRouter } from './api/virtue/VirtueRouter';
 import { requireAuth } from './auth/authMiddleware';
 
 export function getRouters(config: Config, dependencies: Dependencies) {
@@ -19,6 +20,8 @@ export function getRouters(config: Config, dependencies: Dependencies) {
   const session = new SessionRouter(config, dependencies);
 
   const goal = new GoalRouter(config, dependencies);
+
+  const virtue = new VirtueRouter(config, dependencies);
 
   // Gate every data route behind a valid Supabase Auth JWT. `/health` (and the
   // Swagger UI mounted in `Server`) stay public.
@@ -65,6 +68,12 @@ export function getRouters(config: Config, dependencies: Dependencies) {
   router.patch(`/goals/:id`, auth, goal.update.bind(goal));
   router.delete(`/goals/:id`, auth, goal.delete.bind(goal));
   router.post(`/goals/:id/complete`, auth, goal.complete.bind(goal));
+
+  router.get(`/virtues`, auth, virtue.list.bind(virtue));
+  router.post(`/virtues`, auth, virtue.create.bind(virtue));
+  router.get(`/virtues/:id/history`, auth, virtue.history.bind(virtue));
+  router.patch(`/virtues/:id`, auth, virtue.update.bind(virtue));
+  router.delete(`/virtues/:id`, auth, virtue.delete.bind(virtue));
 
   return [router];
 }
