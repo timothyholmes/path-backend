@@ -236,7 +236,7 @@ npm run typecheck       # tsc --noEmit over src, test, and db
 
 `apps/mobile` is the Path AI client: Expo + Expo Router (TypeScript), targeting iOS, Android, and web
 from one codebase. It talks to the local Supabase stack directly via `@supabase/supabase-js`, per the
-RLS-as-boundary design described in `CLAUDE.md`.
+RLS-as-boundary design described in `AGENTS.md`.
 
 ```bash
 pnpm install                         # from the repo root; installs backend + app
@@ -254,6 +254,9 @@ Then start Expo (`w` for web, `i` for the iOS simulator, `a` for Android):
 
 ```bash
 pnpm --filter mobile start
+
+# Or start the web preview on port 8081 from the repo root:
+npm run dev:mobile:web
 ```
 
 Sign in with the account `supabase/seed.sql` creates: **dev@path.test** / **path-dev-password**.
@@ -307,4 +310,4 @@ test/
   db/                     Migration runner and seeder tests
 ```
 
-See `CLAUDE.md` for the architectural conventions the database layer follows.
+See `AGENTS.md` for the architectural conventions the database layer follows.

@@ -1,7 +1,7 @@
 # Virtues module
 
 Virtues, their derived levels, and per-virtue XP history (`/virtues`). Router → Service → Storage,
-wired in `src/routers.ts` and `src/dependencies.ts`; see the root `CLAUDE.md` for the layering rules
+wired in `src/routers.ts` and `src/dependencies.ts`; see the root `AGENTS.md` for the layering rules
 this follows. Tests: `test/api/virtue/virtues.test.ts`.
 
 ## Before you change anything

@@ -1,7 +1,7 @@
 # Sessions module
 
 Focused work sessions (`/sessions`) and their timed instances. Router → Service → Storage, wired in
-`src/routers.ts` and `src/dependencies.ts`; see the root `CLAUDE.md` for the layering rules this
+`src/routers.ts` and `src/dependencies.ts`; see the root `AGENTS.md` for the layering rules this
 follows. Tests: `test/api/session/sessions.test.ts`.
 
 ## Before you change anything

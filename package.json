@@ -4,6 +4,7 @@
   "packageManager": "pnpm@11.17.0",
   "main": "dist/index.js",
   "scripts": {
+    "dev:mobile:web": "pnpm --filter mobile exec expo start --web --port 8081",
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",

@@ -2,6 +2,7 @@ node_modules/
 dist/
 coverage/
 .claude/
+.worktrees/
 .vscode/
 .env
 config/secrets.yml

@@ -1,7 +1,7 @@
 # Goals module
 
 Goals, quests, subtasks, and the idea backlog (`/goals`, `/goals/backlog`). Router → Service →
-Storage, wired in `src/routers.ts` and `src/dependencies.ts`; see the root `CLAUDE.md` for the
+Storage, wired in `src/routers.ts` and `src/dependencies.ts`; see the root `AGENTS.md` for the
 layering rules this follows. Tests: `test/api/goal/goals.test.ts`.
 
 ## Before you change anything
